@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install black isort flake8
+      - working-directory: ./backend
+        run: |
+          black --check app/ tests/ --diff
+          isort --check app/ tests/ --diff
+          flake8 app/ tests/ --statistics
+
+  frontend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - working-directory: ./frontend
+        run: |
+          npm install --legacy-peer-deps
+          npm run lint
+          npm run format:check
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - working-directory: ./frontend
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
+
+  frontend-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - working-directory: ./frontend
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          docker compose build --parallel \
+            postgres redis rabbitmq \
+            fastapi ai-worker frontend
