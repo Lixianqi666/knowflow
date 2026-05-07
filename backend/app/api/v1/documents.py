@@ -86,19 +86,20 @@ async def upload_file(
         from openpyxl import load_workbook
 
         wb = load_workbook(io.BytesIO(content), read_only=True)
-        rows = []
+        sections = []
         for sheet in wb.worksheets:
             sheet_name = sheet.title
             all_rows = list(sheet.iter_rows(values_only=True))
             if not all_rows:
                 continue
             header = [str(c or "") for c in all_rows[0]]
+            lines = [f"## 表格：{sheet_name}"]
             for row in all_rows[1:]:
-                pairs = [f"{header[i]}{str(c or '')}" for i, c in enumerate(row) if c is not None]
+                pairs = [f"{header[i]}：{str(c)}" for i, c in enumerate(row) if c is not None]
                 if pairs:
-                    rows.append(f"[{sheet_name}] {'，'.join(pairs)}")
-            rows.append("")
-        text_content = "\n".join(rows)
+                    lines.append("；".join(pairs))
+            sections.append("\n".join(lines))
+        text_content = "\n\n".join(sections)
     else:
         raise HTTPException(status_code=400, detail=f"不支持的文件格式: {suffix}")
 
