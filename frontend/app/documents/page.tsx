@@ -82,7 +82,21 @@ export default function DocumentsPage() {
     <div className="flex h-screen" style={{ background: 'var(--c-bg)' }}>
       <Sidebar />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div
+        className="flex-1 flex flex-col overflow-hidden"
+        onDragOver={(e) => {
+          // 只对文件拖拽响应，忽略文本/链接拖拽
+          if (e.dataTransfer.types.includes('Files')) {
+            e.preventDefault();
+            setDragging(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          if (e.dataTransfer.types.includes('Files') && e.currentTarget === e.target) {
+            setDragging(false);
+          }
+        }}
+      >
         {/* Header */}
         <header
           className="shrink-0 px-6 md:px-8 py-4 flex items-center justify-between gap-3 flex-wrap z-10"
@@ -254,46 +268,54 @@ export default function DocumentsPage() {
               </div>
             )}
 
-            {/* Upload Drop Zone */}
-            <div
-              className={`mb-4 border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
-                dragging ? 'border-blue-500 bg-blue-50' : ''
-              }`}
-              style={{
-                borderColor: dragging ? 'var(--c-primary)' : 'var(--c-border)',
-                background: dragging ? 'var(--c-primary-subtle)' : 'transparent',
-                color: dragging ? 'var(--c-primary)' : 'var(--c-text-tertiary)',
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
-              onClick={() => setShowUpload(true)}
-            >
-              <svg
-                className="w-8 h-8 mx-auto mb-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
-              <p className="text-sm">拖拽文件到此处上传</p>
-              <p className="text-xs mt-1">支持 txt / md / pdf / docx / xlsx</p>
-            </div>
-
             {/* DocList */}
             <DocList refreshKey={refreshKey} kbId={currentKbId} searchProp={searchVal} />
           </div>
         </div>
       </div>
+
+      {/* 全页拖拽上传遮罩 */}
+      {dragging && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{
+            background: 'rgba(37,99,235,.08)',
+            backdropFilter: 'blur(4px)',
+          }}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            // 只在离开整个区域时才关闭
+            if (e.currentTarget === e.target) setDragging(false);
+          }}
+          onDrop={handleDrop}
+        >
+          <div
+            className="rounded-2xl p-12 text-center transition-all"
+            style={{
+              background: 'rgba(255,255,255,.95)',
+              border: '2px dashed var(--c-primary)',
+              boxShadow: '0 20px 60px rgba(37,99,235,.15)',
+              transform: 'scale(1)',
+            }}
+          >
+            <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="var(--c-primary)" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+            <p className="text-base font-medium" style={{ color: 'var(--c-primary)' }}>
+              松开以上传文件
+            </p>
+            <p className="text-sm mt-1" style={{ color: 'var(--c-text-tertiary)' }}>
+              支持 txt / md / pdf / docx / xlsx
+            </p>
+          </div>
+        </div>
+      )}
 
       <UploadDialog
         open={showUpload}
