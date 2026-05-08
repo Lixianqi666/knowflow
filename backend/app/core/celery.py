@@ -1,6 +1,9 @@
 from celery import Celery
 
 from app.config import settings
+from app.core.logging import init_logging
+
+init_logging()
 
 celery_app = Celery(
     "knowflow",

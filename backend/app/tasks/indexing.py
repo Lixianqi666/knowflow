@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import settings
 from app.core.celery import celery_app
+from app.core.metrics import documents_indexed_total
 from app.models import (  # noqa: F401
     audit_log,
     conversation,
@@ -87,6 +88,7 @@ async def _index(document_id: str):
                 },
             )
             await db.commit()
+            documents_indexed_total.inc()
             logger.info(f"文档索引完成: {doc.title}")
     finally:
         await engine.dispose()

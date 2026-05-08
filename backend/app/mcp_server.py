@@ -201,7 +201,9 @@ async def lifespan(server: Server) -> AsyncIterator:
 
 
 async def main():
-    logging.basicConfig(level=logging.WARNING)
+    from app.core.logging import init_logging
+
+    init_logging()
     async with stdio_server() as streams:
         await server.run(streams[0], streams[1], server.create_initialization_options())
 

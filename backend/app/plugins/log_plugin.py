@@ -3,6 +3,7 @@
 import logging
 
 from app.core.hooks import register
+from app.core.metrics import documents_indexed_total, llm_requests_total
 from app.core.plugins import BasePlugin, register_plugin
 
 logger = logging.getLogger("app")
@@ -19,9 +20,8 @@ class LogPlugin(BasePlugin):
         logger.warning("插件加载成功: log_stats")
 
     async def _after_retrieval(self, query: str, chunk_count: int, elapsed: float, **kwargs):
-        logger.warning(
-            f"[PLUGIN] 检索: query={query[:30]} chunks={chunk_count} time={elapsed:.2f}s"
-        )
+        logger.info(f"[PLUGIN] 检索: query={query[:30]} chunks={chunk_count} time={elapsed:.2f}s")
 
     async def _after_llm(self, query: str, token_count: int, elapsed: float, **kwargs):
-        logger.warning(f"[PLUGIN] LLM: query={query[:30]} tokens={token_count} time={elapsed:.2f}s")
+        llm_requests_total.labels(operation="chat").inc()
+        logger.info(f"[PLUGIN] LLM: query={query[:30]} tokens={token_count} time={elapsed:.2f}s")

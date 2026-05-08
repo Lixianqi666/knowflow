@@ -67,7 +67,9 @@ def on_message(channel, method, properties, body):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    from app.core.logging import init_logging
+
+    init_logging()
 
     conn = get_connection()
     ch = conn.channel()

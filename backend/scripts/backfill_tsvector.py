@@ -12,7 +12,9 @@ from app.database import engine, async_session
 from app.models.document import DocumentChunk
 from app.pipeline.indexer import _build_tsvector
 
-logging.basicConfig(level=logging.INFO)
+from app.core.logging import init_logging
+
+init_logging()
 logger = logging.getLogger(__name__)
 
 
