@@ -53,8 +53,14 @@ export default function LoginPage() {
           <div className="flex items-center gap-3 mb-10">
             <svg width="40" height="40" viewBox="0 0 100 100" className="shrink-0">
               <rect width="100" height="100" rx="20" fill="rgba(255,255,255,.15)" />
-              <path d="M30 25v50M30 50l22-25M30 50l22 25"
-                stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path
+                d="M30 25v50M30 50l22-25M30 50l22 25"
+                stroke="white"
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
               <circle cx="68" cy="35" r="3.5" fill="white" opacity="0.7" />
               <circle cx="68" cy="65" r="3.5" fill="white" opacity="0.7" />
             </svg>
@@ -70,10 +76,14 @@ export default function LoginPage() {
               { icon: '⚡', text: '流式输出，实时查看生成过程' },
               { icon: '🔒', text: '企业级权限管理，数据安全可控' },
             ].map((item, i) => (
-              <div key={item.text}
+              <div
+                key={item.text}
                 className="flex items-center gap-3 animate-slide-up"
-                style={{ animationDelay: `${i * 80}ms` }}>
-                <span className="text-2xl w-10 h-10 flex items-center justify-center rounded-xl bg-white/10">{item.icon}</span>
+                style={{ animationDelay: `${i * 80}ms` }}
+              >
+                <span className="text-2xl w-10 h-10 flex items-center justify-center rounded-xl bg-white/10">
+                  {item.icon}
+                </span>
                 <span className="text-blue-50 text-sm">{item.text}</span>
               </div>
             ))}
@@ -87,14 +97,22 @@ export default function LoginPage() {
           <div className="lg:hidden mb-8 flex items-center gap-3">
             <svg width="32" height="32" viewBox="0 0 100 100">
               <rect width="100" height="100" rx="20" fill="#2563eb" />
-              <path d="M30 25v50M30 50l22-25M30 50l22 25"
-                stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path
+                d="M30 25v50M30 50l22-25M30 50l22 25"
+                stroke="white"
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
               <circle cx="68" cy="35" r="3.5" fill="white" opacity="0.7" />
               <circle cx="68" cy="65" r="3.5" fill="white" opacity="0.7" />
             </svg>
             <div>
               <h1 className="text-lg font-bold">KnowFlow</h1>
-              <p className="text-xs" style={{ color: 'var(--c-text-tertiary)' }}>企业知识库</p>
+              <p className="text-xs" style={{ color: 'var(--c-text-tertiary)' }}>
+                企业知识库
+              </p>
             </div>
           </div>
           <h2 className="text-2xl font-bold mb-1 tracking-tight">
@@ -108,61 +126,134 @@ export default function LoginPage() {
             {isRegister && (
               <div>
                 <label className="block text-sm font-medium mb-1.5">姓名</label>
-                <input type="text" placeholder="请输入姓名" value={name}
+                <input
+                  type="text"
+                  placeholder="请输入姓名"
+                  value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border outline-none transition-all"
-                  style={{ background: 'var(--c-surface)', borderColor: 'var(--c-border)', color: 'var(--c-text)' }}
-                  onFocus={e => { e.target.style.borderColor = 'var(--c-primary)'; e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)'; }}
-                  onBlur={e => { e.target.style.borderColor = 'var(--c-border)'; e.target.style.boxShadow = 'none'; }}
-                  required />
+                  style={{
+                    background: 'var(--c-surface)',
+                    borderColor: 'var(--c-border)',
+                    color: 'var(--c-text)',
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--c-primary)';
+                    e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--c-border)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  required
+                />
               </div>
             )}
             <div>
               <label className="block text-sm font-medium mb-1.5">邮箱</label>
-              <input type="email" placeholder="请输入邮箱" value={email}
+              <input
+                type="email"
+                placeholder="请输入邮箱"
+                value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border outline-none transition-all"
-                style={{ background: 'var(--c-surface)', borderColor: 'var(--c-border)', color: 'var(--c-text)' }}
-                onFocus={e => { e.target.style.borderColor = 'var(--c-primary)'; e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)'; }}
-                onBlur={e => { e.target.style.borderColor = 'var(--c-border)'; e.target.style.boxShadow = 'none'; }}
-                required />
+                style={{
+                  background: 'var(--c-surface)',
+                  borderColor: 'var(--c-border)',
+                  color: 'var(--c-text)',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'var(--c-primary)';
+                  e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'var(--c-border)';
+                  e.target.style.boxShadow = 'none';
+                }}
+                required
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">密码</label>
-              <input type="password" placeholder="请输入密码" value={password}
+              <input
+                type="password"
+                placeholder="请输入密码"
+                value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border outline-none transition-all"
-                style={{ background: 'var(--c-surface)', borderColor: 'var(--c-border)', color: 'var(--c-text)' }}
-                onFocus={e => { e.target.style.borderColor = 'var(--c-primary)'; e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)'; }}
-                onBlur={e => { e.target.style.borderColor = 'var(--c-border)'; e.target.style.boxShadow = 'none'; }}
-                required />
+                style={{
+                  background: 'var(--c-surface)',
+                  borderColor: 'var(--c-border)',
+                  color: 'var(--c-text)',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'var(--c-primary)';
+                  e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'var(--c-border)';
+                  e.target.style.boxShadow = 'none';
+                }}
+                required
+              />
             </div>
 
             {error && (
-              <div className="px-4 py-2.5 rounded-xl text-sm"
-                style={{ background: 'var(--c-error-subtle)', color: 'var(--c-error)', border: '1px solid rgba(220,38,38,.15)' }}>
+              <div
+                className="px-4 py-2.5 rounded-xl text-sm"
+                style={{
+                  background: 'var(--c-error-subtle)',
+                  color: 'var(--c-error)',
+                  border: '1px solid rgba(220,38,38,.15)',
+                }}
+              >
                 {error}
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-base">
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-2.5 text-base"
+            >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
-                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      opacity="0.25"
+                    />
+                    <path
+                      d="M12 2a10 10 0 0 1 10 10"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
                   </svg>
                   处理中...
                 </span>
-              ) : (isRegister ? '注册' : '登录')}
+              ) : isRegister ? (
+                '注册'
+              ) : (
+                '登录'
+              )}
             </button>
           </form>
 
           <p className="text-center mt-6 text-sm" style={{ color: 'var(--c-text-secondary)' }}>
             {isRegister ? '已有账号？' : '没有账号？'}
-            <button onClick={() => { setIsRegister(!isRegister); setError(''); }}
+            <button
+              onClick={() => {
+                setIsRegister(!isRegister);
+                setError('');
+              }}
               className="ml-1 font-medium hover:underline border-none cursor-pointer"
-              style={{ color: 'var(--c-primary)', background: 'none' }}>
+              style={{ color: 'var(--c-primary)', background: 'none' }}
+            >
               {isRegister ? '去登录' : '去注册'}
             </button>
           </p>

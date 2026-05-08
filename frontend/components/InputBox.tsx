@@ -94,11 +94,24 @@ export default function InputBox({ onSend, disabled, onStop, streaming }: Props)
           </button>
         </div>
 
-        <p className="text-xs mt-2" style={{ color: 'var(--c-text-tertiary)', textAlign: 'center' }}>
-          <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'var(--c-border)', color: 'var(--c-text-secondary)' }}>Enter</kbd>
+        <p
+          className="text-xs mt-2"
+          style={{ color: 'var(--c-text-tertiary)', textAlign: 'center' }}
+        >
+          <kbd
+            className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+            style={{ background: 'var(--c-border)', color: 'var(--c-text-secondary)' }}
+          >
+            Enter
+          </kbd>
           <span className="mx-1">发送</span>
           <span className="mx-0.5">·</span>
-          <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: 'var(--c-border)', color: 'var(--c-text-secondary)' }}>Shift+Enter</kbd>
+          <kbd
+            className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+            style={{ background: 'var(--c-border)', color: 'var(--c-text-secondary)' }}
+          >
+            Shift+Enter
+          </kbd>
           <span className="ml-1">换行</span>
         </p>
       </div>

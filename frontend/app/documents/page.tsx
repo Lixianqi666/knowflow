@@ -192,9 +192,11 @@ export default function DocumentsPage() {
                     </option>
                   ))}
                 </select>
-                <button onClick={() => setShowCreateKb(!showCreateKb)}
+                <button
+                  onClick={() => setShowCreateKb(!showCreateKb)}
                   className="ml-1 px-3 py-1.5 text-xs font-medium rounded-lg border-none cursor-pointer transition-all"
-                  style={{ background: 'var(--c-primary)', color: '#fff' }}>
+                  style={{ background: 'var(--c-primary)', color: '#fff' }}
+                >
                   + 新建知识库
                 </button>
                 <button
@@ -270,7 +272,10 @@ export default function DocumentsPage() {
             background: 'rgba(37,99,235,.08)',
             backdropFilter: 'blur(4px)',
           }}
-          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           onDragLeave={(e) => {
             e.preventDefault();
             // 只在离开整个区域时才关闭
@@ -287,7 +292,12 @@ export default function DocumentsPage() {
               transform: 'scale(1)',
             }}
           >
-            <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="var(--c-primary)" viewBox="0 0 24 24">
+            <svg
+              className="w-12 h-12 mx-auto mb-4"
+              fill="none"
+              stroke="var(--c-primary)"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

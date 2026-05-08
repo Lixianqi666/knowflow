@@ -51,8 +51,10 @@ class ChatService:
         # 1. 历史消息
         history_rows = await self._get_history(conversation_id)
         history_msgs: list[dict] = []
-        for msg in history_rows[-self.MAX_HISTORY:]:
-            history_msgs.append({"role": "user" if msg.role == "user" else "assistant", "content": msg.content})
+        for msg in history_rows[-self.MAX_HISTORY :]:
+            history_msgs.append(
+                {"role": "user" if msg.role == "user" else "assistant", "content": msg.content}
+            )
 
         # 2. 查询改写 + 检索
         import time
@@ -61,16 +63,30 @@ class ChatService:
         search_query = await rewrite_query(user_message, history_summary)
         _t0 = time.time()
         chunks = await self.retrieval.search(
-            search_query, user_id, is_admin=is_admin,
-            top_k=top_k, threshold=threshold, rerank_top_k=rerank_top_k,
+            search_query,
+            user_id,
+            is_admin=is_admin,
+            top_k=top_k,
+            threshold=threshold,
+            rerank_top_k=rerank_top_k,
         )
         sources = [
-            {"title": c.document_title, "content": c.content[:200], "score": round(c.score, 3),
-             "chunk_id": str(c.id), "document_id": str(c.document_id)}
+            {
+                "title": c.document_title,
+                "content": c.content[:200],
+                "score": round(c.score, 3),
+                "chunk_id": str(c.id),
+                "document_id": str(c.document_id),
+            }
             for c in chunks
         ]
         yield json.dumps({"type": "sources", "data": sources}, ensure_ascii=False)
-        await trigger_hooks("after_retrieval", query=user_message, chunk_count=len(chunks), elapsed=time.time() - _t0)
+        await trigger_hooks(
+            "after_retrieval",
+            query=user_message,
+            chunk_count=len(chunks),
+            elapsed=time.time() - _t0,
+        )
 
         # 3. 选择 prompt + 构造消息
         has_context = len(chunks) > 0 and any(c.score > 0 for c in chunks)
@@ -89,13 +105,16 @@ class ChatService:
 
         context_text = (
             "\n\n---\n\n".join(f"[{c.document_title}]\n{c.content}" for c in chunks)
-            if chunks else "未找到相关文档内容。"
+            if chunks
+            else "未找到相关文档内容。"
         )
 
         if system_prompt is NO_CONTEXT_SYSTEM:
             messages = build_messages(system_prompt, history=history_msgs, question=search_query)
         else:
-            messages = build_messages(system_prompt, context=context_text, history=history_msgs, question=search_query)
+            messages = build_messages(
+                system_prompt, context=context_text, history=history_msgs, question=search_query
+            )
 
         # 4. 流式生成（检测 JSON 边界后截断）
         _t1 = time.time()
@@ -107,13 +126,13 @@ class ChatService:
                 continue
             full_response += chunk
             # 检测 JSON 块开始（```json 或 单独一行的 {）
-            if '```json' in full_response or re.search(r'\n\s*\{', full_response):
+            if "```json" in full_response or re.search(r"\n\s*\{", full_response):
                 json_started = True
                 # 只输出 JSON 之前的文本
-                if '```json' in full_response:
-                    text_part = full_response.split('```json')[0]
+                if "```json" in full_response:
+                    text_part = full_response.split("```json")[0]
                 else:
-                    text_part = re.sub(r'\n\s*\{.*$', '', full_response, count=1)
+                    text_part = re.sub(r"\n\s*\{.*$", "", full_response, count=1)
                 # 重发截断后的最终文本
                 if text_part.strip():
                     yield json.dumps({"type": "token", "data": text_part}, ensure_ascii=False)
@@ -126,26 +145,47 @@ class ChatService:
             try:
                 parsed = parse_rag_response(full_response)
                 if parsed:
-                    yield json.dumps({
-                        "type": "structured",
-                        "data": {"answer": parsed.answer, "sources": parsed.sources,
-                                 "confidence": parsed.confidence, "has_sufficient_context": parsed.has_sufficient_context},
-                    }, ensure_ascii=False)
+                    yield json.dumps(
+                        {
+                            "type": "structured",
+                            "data": {
+                                "answer": parsed.answer,
+                                "sources": parsed.sources,
+                                "confidence": parsed.confidence,
+                                "has_sufficient_context": parsed.has_sufficient_context,
+                            },
+                        },
+                        ensure_ascii=False,
+                    )
                     display_text = parsed.answer
             except Exception:
                 pass
 
         # 清理显示文本
-        display_text = re.sub(r'```json[\s\S]*?```', '', display_text)
-        display_text = re.sub(r'\s*\{[\s\S]*"answer"[\s\S]*"sources"[\s\S]*\}\s*$', '', display_text)
-        display_text = re.sub(r'\[来源:\s*[^\]]+\]', '', display_text)
-        display_text = re.sub(r'\n{3,}', '\n\n', display_text).strip()
+        display_text = re.sub(r"```json[\s\S]*?```", "", display_text)
+        display_text = re.sub(
+            r'\s*\{[\s\S]*"answer"[\s\S]*"sources"[\s\S]*\}\s*$', "", display_text
+        )
+        display_text = re.sub(r"\[来源:\s*[^\]]+\]", "", display_text)
+        display_text = re.sub(r"\n{3,}", "\n\n", display_text).strip()
 
-        await trigger_hooks("after_llm", query=user_message, token_count=len(full_response) // 2, elapsed=time.time() - _t1)
+        await trigger_hooks(
+            "after_llm",
+            query=user_message,
+            token_count=len(full_response) // 2,
+            elapsed=time.time() - _t1,
+        )
 
         # 6. 持久化
         self.db.add(Message(conversation_id=conversation_id, role="user", content=user_message))
-        self.db.add(Message(conversation_id=conversation_id, role="assistant", content=display_text, sources=sources))
+        self.db.add(
+            Message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=display_text,
+                sources=sources,
+            )
+        )
         await self.db.flush()
         yield json.dumps({"type": "done"}, ensure_ascii=False)
 
@@ -159,16 +199,25 @@ class ChatService:
         conv = await self.db.get(Conversation, conversation_id)
         if not conv or not _is_default_title(conv.title):
             return
-        count = await self.db.scalar(select(func.count()).where(Message.conversation_id == conversation_id))
+        count = await self.db.scalar(
+            select(func.count()).where(Message.conversation_id == conversation_id)
+        )
         if count and count > 2:
             return
         try:
             from litellm import completion
+
             kwargs = dict(
                 model=settings.LLM_MODEL,
-                messages=[{"role": "system", "content": "根据用户的提问，生成 4-6 个字的简短标题，只输出标题本身，不要标点。"},
-                          {"role": "user", "content": user_message}],
-                temperature=0.1, max_tokens=20,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "根据用户的提问，生成 4-6 个字的简短标题，只输出标题本身，不要标点。",
+                    },
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=0.1,
+                max_tokens=20,
             )
             if settings.LLM_API_KEY:
                 kwargs["api_key"] = settings.LLM_API_KEY
@@ -183,8 +232,10 @@ class ChatService:
 
     async def _get_history(self, conversation_id: str) -> list[Message]:
         result = await self.db.execute(
-            select(Message).where(Message.conversation_id == conversation_id)
-            .order_by(Message.created_at.desc()).limit(self.MAX_HISTORY)
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.desc())
+            .limit(self.MAX_HISTORY)
         )
         return list(reversed(result.scalars().all()))
 

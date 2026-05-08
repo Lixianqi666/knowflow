@@ -46,8 +46,10 @@ class AgentService:
         # 1. 历史消息
         history_rows = await self._get_history(session_id)
         history_msgs: list[dict] = []
-        for msg in history_rows[-self.MAX_HISTORY:]:
-            history_msgs.append({"role": "user" if msg.role == "user" else "assistant", "content": msg.content})
+        for msg in history_rows[-self.MAX_HISTORY :]:
+            history_msgs.append(
+                {"role": "user" if msg.role == "user" else "assistant", "content": msg.content}
+            )
 
         # 2. 查询改写 + 检索
         history_summary = " ".join(m["content"][:60] for m in history_msgs[-4:])
@@ -58,8 +60,13 @@ class AgentService:
             for kb_id in agent_kb_ids:
                 try:
                     kbs = await self.retrieval.search(
-                        search_query, user_id, is_admin=is_admin,
-                        top_k=top_k, threshold=threshold, rerank_top_k=rerank_top_k, kb_id=kb_id,
+                        search_query,
+                        user_id,
+                        is_admin=is_admin,
+                        top_k=top_k,
+                        threshold=threshold,
+                        rerank_top_k=rerank_top_k,
+                        kb_id=kb_id,
                     )
                     chunks.extend(kbs)
                 except Exception as e:
@@ -74,13 +81,22 @@ class AgentService:
             chunks = unique_chunks[:top_k]
         else:
             chunks = await self.retrieval.search(
-                search_query, user_id, is_admin=is_admin,
-                top_k=top_k, threshold=threshold, rerank_top_k=rerank_top_k,
+                search_query,
+                user_id,
+                is_admin=is_admin,
+                top_k=top_k,
+                threshold=threshold,
+                rerank_top_k=rerank_top_k,
             )
 
         sources = [
-            {"title": c.document_title, "content": c.content[:200], "score": round(c.score, 3),
-             "chunk_id": str(c.id), "document_id": str(c.document_id)}
+            {
+                "title": c.document_title,
+                "content": c.content[:200],
+                "score": round(c.score, 3),
+                "chunk_id": str(c.id),
+                "document_id": str(c.document_id),
+            }
             for c in chunks
         ]
         yield json.dumps({"type": "sources", "data": sources}, ensure_ascii=False)
@@ -89,19 +105,28 @@ class AgentService:
         has_context = len(chunks) > 0 and any(c.score > 0 for c in chunks)
         context_text = (
             "\n\n---\n\n".join(f"[{c.document_title}]\n{c.content}" for c in chunks)
-            if chunks else "未找到相关文档内容。"
+            if chunks
+            else "未找到相关文档内容。"
         )
 
         if system_prompt:
             if has_context:
-                messages = build_messages(system_prompt, context=context_text, history=history_msgs, question=search_query)
+                messages = build_messages(
+                    system_prompt, context=context_text, history=history_msgs, question=search_query
+                )
             else:
-                messages = build_messages(NO_CONTEXT_SYSTEM, history=history_msgs, question=search_query)
+                messages = build_messages(
+                    NO_CONTEXT_SYSTEM, history=history_msgs, question=search_query
+                )
         else:
             if has_context:
-                messages = build_messages(RAG_SYSTEM, context=context_text, history=history_msgs, question=search_query)
+                messages = build_messages(
+                    RAG_SYSTEM, context=context_text, history=history_msgs, question=search_query
+                )
             else:
-                messages = build_messages(NO_CONTEXT_SYSTEM, history=history_msgs, question=search_query)
+                messages = build_messages(
+                    NO_CONTEXT_SYSTEM, history=history_msgs, question=search_query
+                )
 
         # 4. 流式生成
         full_response = ""
@@ -114,17 +139,28 @@ class AgentService:
             try:
                 parsed = parse_rag_response(full_response)
                 if parsed:
-                    yield json.dumps({
-                        "type": "structured",
-                        "data": {"answer": parsed.answer, "sources": parsed.sources,
-                                 "confidence": parsed.confidence, "has_sufficient_context": parsed.has_sufficient_context},
-                    }, ensure_ascii=False)
+                    yield json.dumps(
+                        {
+                            "type": "structured",
+                            "data": {
+                                "answer": parsed.answer,
+                                "sources": parsed.sources,
+                                "confidence": parsed.confidence,
+                                "has_sufficient_context": parsed.has_sufficient_context,
+                            },
+                        },
+                        ensure_ascii=False,
+                    )
             except Exception:
                 pass
 
         # 6. 持久化
         self.db.add(AgentMessage(session_id=session_id, role="user", content=user_message))
-        self.db.add(AgentMessage(session_id=session_id, role="assistant", content=full_response, sources=sources))
+        self.db.add(
+            AgentMessage(
+                session_id=session_id, role="assistant", content=full_response, sources=sources
+            )
+        )
         await self.db.flush()
         yield json.dumps({"type": "done"}, ensure_ascii=False)
 
@@ -138,16 +174,25 @@ class AgentService:
         session = await self.db.get(AgentSession, session_id)
         if not session or not _is_default_title(session.title):
             return
-        count = await self.db.scalar(select(func.count()).where(AgentMessage.session_id == session_id))
+        count = await self.db.scalar(
+            select(func.count()).where(AgentMessage.session_id == session_id)
+        )
         if count and count > 2:
             return
         try:
             from litellm import completion
+
             kwargs = dict(
                 model=settings.LLM_MODEL,
-                messages=[{"role": "system", "content": "根据用户的提问，生成 4-6 个字的简短标题，只输出标题本身，不要标点。"},
-                          {"role": "user", "content": user_message}],
-                temperature=0.1, max_tokens=20,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "根据用户的提问，生成 4-6 个字的简短标题，只输出标题本身，不要标点。",
+                    },
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=0.1,
+                max_tokens=20,
             )
             if settings.LLM_API_KEY:
                 kwargs["api_key"] = settings.LLM_API_KEY
@@ -162,8 +207,10 @@ class AgentService:
 
     async def _get_history(self, session_id: str) -> list[AgentMessage]:
         result = await self.db.execute(
-            select(AgentMessage).where(AgentMessage.session_id == session_id)
-            .order_by(AgentMessage.created_at.desc()).limit(self.MAX_HISTORY)
+            select(AgentMessage)
+            .where(AgentMessage.session_id == session_id)
+            .order_by(AgentMessage.created_at.desc())
+            .limit(self.MAX_HISTORY)
         )
         return list(reversed(result.scalars().all()))
 

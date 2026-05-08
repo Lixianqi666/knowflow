@@ -17,7 +17,6 @@ from app.models.user import User
 from app.services.audit import log as audit_log
 from app.services.webhook import dispatch as webhook_dispatch
 
-
 router = APIRouter(prefix="/documents", tags=["文档"])
 
 ALLOWED_EXT = set(settings.ALLOWED_EXTENSIONS.split(","))
