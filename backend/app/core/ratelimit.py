@@ -1,3 +1,4 @@
+import os
 import time
 
 import redis.asyncio as aioredis
@@ -54,6 +55,8 @@ async def upload_rate_limit(request: Request):
 
 
 async def _check(name: str, limit: int, window: int, key: str):
+    if os.getenv("TESTING"):
+        return
     r = await get_redis()
     now = time.time()
     redis_key = f"ratelimit:{name}:{key}"
