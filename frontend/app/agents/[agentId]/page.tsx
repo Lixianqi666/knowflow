@@ -10,7 +10,8 @@ export default function AgentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const agentId = params.agentId as string;
-  const { token, hydrate, agentSessions, setAgentSessions, setCurrentAgentId, setConversations } = useStore();
+  const { token, hydrate, agentSessions, setAgentSessions, setCurrentAgentId, setConversations } =
+    useStore();
   const [agent, setAgent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

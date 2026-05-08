@@ -40,6 +40,7 @@ class ChatService:
                 yield event
         except Exception as e:
             import logging
+
             logging.getLogger(__name__).exception(f"stream_chat异常: {e}")
             msg = str(e).lower()
             if "insufficient" in msg or "balance" in msg:
@@ -54,9 +55,7 @@ class ChatService:
                 friendly = "LLM API 密钥无效，请检查配置"
             else:
                 friendly = f"服务内部错误: {e}"
-            yield json.dumps(
-                {"type": "error", "data": friendly}, ensure_ascii=False
-            )
+            yield json.dumps({"type": "error", "data": friendly}, ensure_ascii=False)
 
     async def _do_stream(
         self,
