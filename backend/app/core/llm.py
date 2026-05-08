@@ -41,6 +41,8 @@ class EmbeddingService:
         self.model = settings.EMBEDDING_MODEL
         self.api_key = settings.EMBEDDING_API_KEY or settings.LLM_API_KEY
         self.api_base = settings.EMBEDDING_BASE_URL or settings.LLM_BASE_URL or None
+        if self.api_base and not self.model.startswith("openai/"):
+            self.model = f"openai/{self.model}"
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         kwargs = dict(model=self.model, input=texts)

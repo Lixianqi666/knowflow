@@ -143,12 +143,17 @@ class AgentService:
             return
         try:
             from litellm import completion
-            resp = completion(
+            kwargs = dict(
                 model=settings.LLM_MODEL,
                 messages=[{"role": "system", "content": "根据用户的提问，生成 4-6 个字的简短标题，只输出标题本身，不要标点。"},
                           {"role": "user", "content": user_message}],
                 temperature=0.1, max_tokens=20,
             )
+            if settings.LLM_API_KEY:
+                kwargs["api_key"] = settings.LLM_API_KEY
+            if settings.LLM_BASE_URL:
+                kwargs["api_base"] = settings.LLM_BASE_URL
+            resp = completion(**kwargs)
             title = resp.choices[0].message.content.strip().strip("\"'").strip()
             if title and len(title) <= 20:
                 session.title = title

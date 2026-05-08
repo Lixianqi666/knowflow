@@ -6,3 +6,10 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
+backend/uploads/
+hf_cache/
+*.egg-info/
+dist/
+.pytest_cache/
+*.log
+测试文件/
