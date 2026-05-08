@@ -143,12 +143,12 @@ class RetrievalService:
         emb_str = "[" + ",".join(str(x) for x in embedding) + "]"
         sql = text(f"""
             SELECT dc.id, dc.content, d.title, d.id AS document_id,
-                   1 - (dc.embedding <=> :embedding::vector) AS score
+                   1 - (dc.embedding <=> :embedding) AS score
             FROM document_chunks dc
             JOIN documents d ON dc.document_id = d.id
             WHERE d.status = 'indexed' AND dc.embedding IS NOT NULL
             {perm} {kb_cond}
-            ORDER BY dc.embedding <=> :embedding::vector
+            ORDER BY dc.embedding <=> :embedding
             LIMIT :limit
         """)
         params = {"embedding": emb_str, "limit": top_k, "uid": user_id}

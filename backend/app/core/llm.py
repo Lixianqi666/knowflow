@@ -22,7 +22,7 @@ class LLMService:
             kwargs["api_base"] = self.api_base
         response = await litellm.acompletion(**kwargs)
         async for chunk in response:
-            delta = chunk.choices[0].delta.content
+            delta = chunk.choices[0].delta.get("content")
             if delta:
                 yield delta
 

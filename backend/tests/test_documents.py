@@ -29,7 +29,7 @@ async def test_upload_rejected_extension(client: AsyncClient, auth_headers: dict
 
 @pytest.mark.asyncio
 async def test_list_documents(client: AsyncClient, auth_headers: dict):
-    resp = await client.get("/api/v1/documents/", headers=auth_headers)
+    resp = await client.get("/api/v1/documents", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, dict) and "items" in data
