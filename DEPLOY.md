@@ -53,6 +53,7 @@ LANGFUSE_SECRET_KEY=
 2. **CORS**: 生产环境收紧 `CORS_ORIGINS=https://your-domain.com`
 3. **JWT**: 设置 `SECRET_KEY`，否则重启后所有 token 失效
 4. **反向代理**: nginx 已内置（端口 80/443），开发环境自动生成自签名证书
+5. **端口冲突**: 如果主机已有 nginx 监听 80 端口（`brew services list | grep nginx`），先 `brew services stop nginx` 释放端口
 
 ### 生产 SSL（Let's Encrypt）
 
