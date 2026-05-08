@@ -114,6 +114,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: /api/v1
     environment:
       NEXT_PUBLIC_API_URL: /api/v1
     depends_on:
