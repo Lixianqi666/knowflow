@@ -93,7 +93,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 export default function AdminPage() {
   const router = useRouter();
-  const { token, hydrate, user } = useStore();
+  const { token, hydrate, user, setConversations } = useStore();
   const [tab, setTab] = useState<
     'users' | 'stats' | 'permissions' | 'templates' | 'agents' | 'audit'
   >('users');
@@ -191,6 +191,10 @@ export default function AdminPage() {
       return;
     }
     loadData();
+    api
+      .get<any[]>('/chat/conversations')
+      .then((items) => setConversations(Array.isArray(items) ? items : []))
+      .catch(() => {});
   }, [token]);
 
   // 点击外部关闭搜索下拉

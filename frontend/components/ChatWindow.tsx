@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
 import MessageBubble from './MessageBubble';
@@ -9,6 +10,7 @@ import SourceViewer from './SourceViewer';
 import { MessageSquare } from 'lucide-react';
 
 export default function ChatWindow() {
+  const router = useRouter();
   const {
     messages,
     addMessage,
@@ -53,8 +55,8 @@ export default function ChatWindow() {
 
   useEffect(() => {
     if (!currentConvId) return;
+    if (streaming) return;
     setLoadingMessages(true);
-    setChatError(null);
     api
       .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
       .then((msgs) =>
@@ -72,7 +74,7 @@ export default function ChatWindow() {
       )
       .catch((e) => setChatError(`加载失败: ${e.message}`))
       .finally(() => setLoadingMessages(false));
-  }, [currentConvId]);
+  }, [currentConvId, streaming]);
 
   const handleSend = async (content: string) => {
     const controller = new AbortController();
@@ -90,6 +92,7 @@ export default function ChatWindow() {
         const conv = await api.post<any>('/chat/conversations', { title: content.slice(0, 30) });
         convId = conv.id;
         setCurrentConvId(convId);
+        router.replace(`/chat/${convId}`);
         setConversations(await api.get<any[]>('/chat/conversations'));
       }
       const stream = await api.streamChat(

@@ -6,7 +6,7 @@ import InputBox from '@/components/InputBox';
 describe('InputBox', () => {
   it('渲染输入框和发送按钮', () => {
     render(<InputBox onSend={() => {}} />);
-    expect(screen.getByPlaceholderText('基于文档提问...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('输入消息...')).toBeInTheDocument();
     expect(screen.getByRole('button')).toBeInTheDocument();
   });
 
@@ -21,7 +21,7 @@ describe('InputBox', () => {
     const user = userEvent.setup();
     render(<InputBox onSend={onSend} />);
 
-    const textarea = screen.getByPlaceholderText('基于文档提问...');
+    const textarea = screen.getByPlaceholderText('输入消息...');
     await user.type(textarea, '你好');
     await user.click(screen.getByRole('button'));
 
@@ -33,7 +33,7 @@ describe('InputBox', () => {
     const user = userEvent.setup();
     render(<InputBox onSend={onSend} />);
 
-    const textarea = screen.getByPlaceholderText('基于文档提问...');
+    const textarea = screen.getByPlaceholderText('输入消息...');
     await user.type(textarea, '测试消息');
     await user.keyboard('{Enter}');
 
@@ -45,7 +45,7 @@ describe('InputBox', () => {
     const user = userEvent.setup();
     render(<InputBox onSend={onSend} />);
 
-    const textarea = screen.getByPlaceholderText('基于文档提问...');
+    const textarea = screen.getByPlaceholderText('输入消息...');
     await user.type(textarea, '测试');
     await user.keyboard('{Shift>}{Enter}{/Shift}');
 
@@ -67,7 +67,7 @@ describe('InputBox', () => {
     const user = userEvent.setup();
     render(<InputBox onSend={() => {}} />);
 
-    const textarea = screen.getByPlaceholderText('基于文档提问...');
+    const textarea = screen.getByPlaceholderText('输入消息...');
     await user.type(textarea, '发送后清空');
     await user.keyboard('{Enter}');
 

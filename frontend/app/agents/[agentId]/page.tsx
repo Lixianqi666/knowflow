@@ -10,7 +10,7 @@ export default function AgentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const agentId = params.agentId as string;
-  const { token, hydrate, agentSessions, setAgentSessions, setCurrentAgentId } = useStore();
+  const { token, hydrate, agentSessions, setAgentSessions, setCurrentAgentId, setConversations } = useStore();
   const [agent, setAgent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -24,6 +24,10 @@ export default function AgentDetailPage() {
       return;
     }
     loadData();
+    api
+      .get<any[]>('/chat/conversations')
+      .then((items) => setConversations(Array.isArray(items) ? items : []))
+      .catch(() => {});
   }, [token, agentId]);
 
   const loadData = async () => {

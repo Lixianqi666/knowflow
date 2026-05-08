@@ -26,7 +26,6 @@ export default function ChatPage() {
       .then((items) => setConversations(Array.isArray(items) ? items : []))
       .catch(() => {});
     setCurrentConvId(null);
-    setMessages([]);
   }, [token]);
 
   return (

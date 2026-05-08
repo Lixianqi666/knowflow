@@ -33,6 +33,39 @@ class ChatService:
         is_admin: bool = False,
         template_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
+        try:
+            async for event in self._do_stream(
+                conversation_id, user_message, user_id, is_admin, template_id
+            ):
+                yield event
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).exception(f"stream_chat异常: {e}")
+            msg = str(e).lower()
+            if "insufficient" in msg or "balance" in msg:
+                friendly = "LLM 服务余额不足，请充值后再试"
+            elif "rate" in msg or "limit" in msg or "429" in msg:
+                friendly = "请求过于频繁，请稍后再试"
+            elif "timeout" in msg or "timed out" in msg:
+                friendly = "LLM 服务响应超时，请稍后再试"
+            elif "connect" in msg or "refused" in msg:
+                friendly = "LLM 服务连接失败，请稍后再试"
+            elif "auth" in msg or "api_key" in msg or "unauthorized" in msg:
+                friendly = "LLM API 密钥无效，请检查配置"
+            else:
+                friendly = f"服务内部错误: {e}"
+            yield json.dumps(
+                {"type": "error", "data": friendly}, ensure_ascii=False
+            )
+
+    async def _do_stream(
+        self,
+        conversation_id: str,
+        user_message: str,
+        user_id: str,
+        is_admin: bool = False,
+        template_id: str | None = None,
+    ) -> AsyncGenerator[str, None]:
         top_k = settings.RETRIEVAL_TOP_K
         threshold = settings.RETRIEVAL_THRESHOLD
         rerank_top_k = settings.RETRIEVAL_RERANK_TOP_K
@@ -56,7 +89,11 @@ class ChatService:
                 {"role": "user" if msg.role == "user" else "assistant", "content": msg.content}
             )
 
-        # 2. 查询改写 + 检索
+        # 2. 先持久化 user 消息，确保 LLM 失败时也有记录
+        self.db.add(Message(conversation_id=conversation_id, role="user", content=user_message))
+        await self.db.flush()
+
+        # 3. 查询改写 + 检索
         import time
 
         history_summary = " ".join(m["content"][:60] for m in history_msgs[-4:])
@@ -176,8 +213,7 @@ class ChatService:
             elapsed=time.time() - _t1,
         )
 
-        # 6. 持久化
-        self.db.add(Message(conversation_id=conversation_id, role="user", content=user_message))
+        # 6. 持久化 assistant 回复
         self.db.add(
             Message(
                 conversation_id=conversation_id,

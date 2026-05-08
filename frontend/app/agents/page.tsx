@@ -8,7 +8,7 @@ import Sidebar from '@/components/Sidebar';
 
 export default function AgentsPage() {
   const router = useRouter();
-  const { token, hydrate, agents, setAgents } = useStore();
+  const { token, hydrate, agents, setAgents, setConversations } = useStore();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,6 +20,10 @@ export default function AgentsPage() {
       return;
     }
     loadAgents();
+    api
+      .get<any[]>('/chat/conversations')
+      .then((items) => setConversations(Array.isArray(items) ? items : []))
+      .catch(() => {});
   }, [token]);
 
   const loadAgents = async () => {

@@ -28,10 +28,6 @@ export default function ConversationPage() {
       .get<any[]>('/chat/conversations')
       .then(setConversations)
       .catch(() => {});
-    api
-      .get<any[]>(`/chat/conversations/${convId}/messages`)
-      .then(setMessages)
-      .catch(() => {});
   }, [token, convId]);
 
   return (

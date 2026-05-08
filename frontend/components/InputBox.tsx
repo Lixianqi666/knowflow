@@ -74,7 +74,7 @@ export default function InputBox({ onSend, disabled, onStop, streaming }: Props)
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
-            placeholder="基于文档提问..."
+            placeholder="输入消息..."
             disabled={disabled}
             rows={1}
             className="flex-1 resize-none text-sm outline-none bg-transparent py-2 leading-6"
