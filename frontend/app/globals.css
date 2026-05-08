@@ -85,6 +85,30 @@ body {
   border-radius: 2px;
 }
 
+/* Input base — 统一聚焦效果 */
+.input-base {
+  outline: none;
+  transition: all 200ms var(--ease-in-out);
+}
+.input-base:focus {
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 3px var(--c-primary-ring) !important;
+  background: var(--c-surface);
+}
+
+/* 输入框容器聚焦提升效果 */
+.input-container {
+  transition: all 200ms var(--ease-out);
+}
+.input-container:focus-within {
+  transform: translateY(-1px);
+}
+.input-container:focus-within .input-base {
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 3px var(--c-primary-ring) !important;
+  background: var(--c-surface);
+}
+
 /* === Animations === */
 @keyframes fadeIn {
   from { opacity: 0; }

@@ -131,19 +131,11 @@ export default function LoginPage() {
                   placeholder="请输入姓名"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border outline-none transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl border input-base"
                   style={{
                     background: 'var(--c-surface)',
                     borderColor: 'var(--c-border)',
                     color: 'var(--c-text)',
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = 'var(--c-primary)';
-                    e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'var(--c-border)';
-                    e.target.style.boxShadow = 'none';
                   }}
                   required
                 />
@@ -156,19 +148,11 @@ export default function LoginPage() {
                 placeholder="请输入邮箱"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border outline-none transition-all"
+                className="w-full px-4 py-2.5 rounded-xl border input-base"
                 style={{
                   background: 'var(--c-surface)',
                   borderColor: 'var(--c-border)',
                   color: 'var(--c-text)',
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'var(--c-primary)';
-                  e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'var(--c-border)';
-                  e.target.style.boxShadow = 'none';
                 }}
                 required
               />
@@ -180,19 +164,11 @@ export default function LoginPage() {
                 placeholder="请输入密码"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border outline-none transition-all"
+                className="w-full px-4 py-2.5 rounded-xl border input-base"
                 style={{
                   background: 'var(--c-surface)',
                   borderColor: 'var(--c-border)',
                   color: 'var(--c-text)',
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'var(--c-primary)';
-                  e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'var(--c-border)';
-                  e.target.style.boxShadow = 'none';
                 }}
                 required
               />

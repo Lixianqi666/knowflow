@@ -235,7 +235,7 @@ export default function DocList({
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="text-xs rounded-lg px-2.5 py-1.5 border outline-none cursor-pointer transition-all"
+          className="text-xs rounded-lg px-2.5 py-1.5 border input-base cursor-pointer"
           style={{
             borderColor: 'var(--c-border)',
             color: 'var(--c-text-secondary)',

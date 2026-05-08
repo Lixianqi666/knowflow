@@ -60,11 +60,11 @@ export default function InputBox({ onSend, disabled, onStop, streaming }: Props)
         )}
 
         <div
-          className="flex items-end gap-2 rounded-2xl border transition-all"
+          className="input-container flex items-end gap-2 rounded-2xl border"
           style={{
             background: 'var(--c-surface)',
-            borderColor: value.trim() ? 'var(--c-primary)' : 'var(--c-border)',
-            boxShadow: value.trim() ? '0 0 0 3px var(--c-primary-ring)' : 'var(--shadow-sm)',
+            borderColor: 'var(--c-border)',
+            boxShadow: 'var(--shadow-sm)',
             padding: '8px 8px 8px 16px',
           }}
         >

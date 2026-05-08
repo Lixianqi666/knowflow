@@ -497,7 +497,7 @@ export default function AdminPage() {
                                 placeholder="搜索用户名或邮箱..."
                                 value={searchQuery}
                                 onChange={(e) => handleSearch(doc.id, e.target.value)}
-                                className="w-full px-3 py-2 text-sm border-b rounded-t-xl focus:outline-none"
+                                className="w-full px-3 py-2 text-sm border-b rounded-t-xl input-base"
                               />
                               <div className="max-h-48 overflow-y-auto">
                                 {searchLoading ? (
@@ -685,7 +685,7 @@ export default function AdminPage() {
                           onChange={(e) =>
                             setTemplateForm({ ...templateForm, name: e.target.value })
                           }
-                          className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                           placeholder="如：HR场景、技术问答"
                         />
                       </div>
@@ -696,7 +696,7 @@ export default function AdminPage() {
                           onChange={(e) =>
                             setTemplateForm({ ...templateForm, description: e.target.value })
                           }
-                          className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                           placeholder="简短描述该场景的用途"
                         />
                       </div>
@@ -709,7 +709,7 @@ export default function AdminPage() {
                           onChange={(e) =>
                             setTemplateForm({ ...templateForm, context_prompt: e.target.value })
                           }
-                          className="w-full text-sm border rounded-lg px-3 py-2 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                          className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
                           placeholder="检索到相关文档时使用的 prompt，告知 AI 如何回答"
                         />
                       </div>
@@ -722,7 +722,7 @@ export default function AdminPage() {
                           onChange={(e) =>
                             setTemplateForm({ ...templateForm, no_context_prompt: e.target.value })
                           }
-                          className="w-full text-sm border rounded-lg px-3 py-2 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                          className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
                           placeholder="未检索到相关文档时使用的 prompt"
                         />
                       </div>
@@ -737,7 +737,7 @@ export default function AdminPage() {
                             onChange={(e) =>
                               setTemplateForm({ ...templateForm, top_k: +e.target.value })
                             }
-                            className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                           />
                         </div>
                         <div>
@@ -748,7 +748,7 @@ export default function AdminPage() {
                             onChange={(e) =>
                               setTemplateForm({ ...templateForm, threshold: +e.target.value })
                             }
-                            className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                           />
                         </div>
                         <div>
@@ -759,7 +759,7 @@ export default function AdminPage() {
                             onChange={(e) =>
                               setTemplateForm({ ...templateForm, rerank_top_k: +e.target.value })
                             }
-                            className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                           />
                         </div>
                       </div>
@@ -921,7 +921,7 @@ export default function AdminPage() {
                         <input
                           value={agentForm.name}
                           onChange={(e) => setAgentForm({ ...agentForm, name: e.target.value })}
-                          className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                         />
                       </div>
                       <div>
@@ -931,7 +931,7 @@ export default function AdminPage() {
                           onChange={(e) =>
                             setAgentForm({ ...agentForm, description: e.target.value })
                           }
-                          className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                         />
                       </div>
                       <div>
@@ -941,7 +941,7 @@ export default function AdminPage() {
                           onChange={(e) =>
                             setAgentForm({ ...agentForm, system_prompt: e.target.value })
                           }
-                          className="w-full text-sm border rounded-lg px-3 py-2 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                          className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
                           placeholder="Agent 的系统提示词，定义 AI 的行为和回答风格"
                         />
                       </div>
@@ -983,7 +983,7 @@ export default function AdminPage() {
                             type="number"
                             value={agentForm.top_k}
                             onChange={(e) => setAgentForm({ ...agentForm, top_k: +e.target.value })}
-                            className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                           />
                         </div>
                         <div>
@@ -994,7 +994,7 @@ export default function AdminPage() {
                             onChange={(e) =>
                               setAgentForm({ ...agentForm, threshold: +e.target.value })
                             }
-                            className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                           />
                         </div>
                         <div>
@@ -1005,7 +1005,7 @@ export default function AdminPage() {
                             onChange={(e) =>
                               setAgentForm({ ...agentForm, rerank_top_k: +e.target.value })
                             }
-                            className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                           />
                         </div>
                       </div>
@@ -1057,7 +1057,7 @@ export default function AdminPage() {
                   value={auditFilter}
                   onChange={(e) => setAuditFilter(e.target.value)}
                   placeholder="筛选操作类型 (send_message/view_doc/download_file/...)"
-                  className="flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 text-sm border rounded-lg px-3 py-1.5 input-base"
                 />
                 <button onClick={loadAuditLogs} className="text-xs text-blue-600 hover:underline">
                   刷新

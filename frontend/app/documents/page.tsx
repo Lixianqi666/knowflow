@@ -119,23 +119,13 @@ export default function DocumentsPage() {
                 value={searchVal}
                 onChange={(e) => setSearchVal(e.target.value)}
                 placeholder="搜索文档标题..."
-                className="rounded-md text-sm outline-none transition-all"
+                className="rounded-md text-sm input-base"
                 style={{
                   width: 220,
                   padding: '8px 12px 8px 36px',
                   border: '1px solid var(--c-border)',
                   background: 'var(--c-bg)',
                   color: 'var(--c-text)',
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'var(--c-primary)';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,.12)';
-                  e.target.style.background = 'var(--c-surface)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'var(--c-border)';
-                  e.target.style.boxShadow = 'none';
-                  e.target.style.background = 'var(--c-bg)';
                 }}
               />
             </div>
@@ -165,7 +155,7 @@ export default function DocumentsPage() {
                 <select
                   value={currentKbId}
                   onChange={(e) => setCurrentKbId(e.target.value)}
-                  className="rounded-md text-sm outline-none cursor-pointer transition-all"
+                  className="rounded-md text-sm input-base cursor-pointer"
                   style={{
                     padding: '7px 32px 7px 12px',
                     border: '1px solid var(--c-border)',
@@ -176,14 +166,6 @@ export default function DocumentsPage() {
                       "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\")",
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'right 10px center',
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = 'var(--c-primary)';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,.12)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'var(--c-border)';
-                    e.target.style.boxShadow = 'none';
                   }}
                 >
                   {kbs.map((kb) => (
@@ -229,16 +211,8 @@ export default function DocumentsPage() {
                   onChange={(e) => setNewKbName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && createKb()}
                   placeholder="知识库名称"
-                  className="flex-1 text-sm border rounded px-2 py-1.5 outline-none transition-all"
+                  className="flex-1 text-sm border rounded px-2 py-1.5 input-base"
                   style={{ borderColor: 'var(--c-border)', color: 'var(--c-text)' }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = 'var(--c-primary)';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,.12)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'var(--c-border)';
-                    e.target.style.boxShadow = 'none';
-                  }}
                   autoFocus
                 />
                 <button

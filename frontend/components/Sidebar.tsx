@@ -150,21 +150,11 @@ export default function Sidebar() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜索对话..."
-              className="w-full text-sm rounded-xl pl-8 pr-3 py-2 border outline-none transition-all"
+              className="w-full text-sm rounded-xl pl-8 pr-3 py-2 border input-base"
               style={{
                 borderColor: 'var(--c-border)',
                 color: 'var(--c-text)',
                 background: 'var(--c-bg)',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = 'var(--c-primary)';
-                e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)';
-                e.target.style.background = 'var(--c-surface)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'var(--c-border)';
-                e.target.style.boxShadow = 'none';
-                e.target.style.background = 'var(--c-bg)';
               }}
             />
           </div>

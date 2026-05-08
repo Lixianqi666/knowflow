@@ -228,7 +228,8 @@ export default function AgentChatPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={renameSession}
-              className="text-sm font-medium bg-transparent border-none focus:outline-none focus:ring-0 p-0 truncate"
+              className="text-sm font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none p-0 truncate transition-all"
+              style={{ minWidth: 40 }}
             />
           </div>
           <button
@@ -285,7 +286,7 @@ export default function AgentChatPage() {
               placeholder="输入消息… (Enter 发送, Shift+Enter 换行)"
               rows={1}
               disabled={agentStreaming}
-              className="flex-1 resize-none text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="flex-1 resize-none text-sm border rounded-lg px-3 py-2 input-base disabled:opacity-50"
             />
             {agentStreaming ? (
               <button

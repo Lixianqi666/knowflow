@@ -257,7 +257,7 @@ export default function ChatWindow() {
           <select
             value={activeTemplate}
             onChange={(e) => setActiveTemplate(e.target.value)}
-            className="text-xs rounded-lg px-2 py-1.5 border outline-none transition-all cursor-pointer"
+            className="text-xs rounded-lg px-2 py-1.5 border input-base cursor-pointer"
             style={{
               borderColor: 'var(--c-border)',
               color: 'var(--c-text-secondary)',
