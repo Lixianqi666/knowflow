@@ -23,7 +23,7 @@ from app.api.v1 import (
     webhooks,
 )
 from app.config import settings
-from app.core.logging import init_logging, RequestIDMiddleware
+from app.core.logging import RequestIDMiddleware, init_logging
 from app.core.metrics import setup_metrics
 from app.core.observability import init_langfuse
 from app.core.plugins import load_all as load_plugins

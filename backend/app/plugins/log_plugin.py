@@ -3,7 +3,7 @@
 import logging
 
 from app.core.hooks import register
-from app.core.metrics import documents_indexed_total, llm_requests_total
+from app.core.metrics import llm_requests_total
 from app.core.plugins import BasePlugin, register_plugin
 
 logger = logging.getLogger("app")
