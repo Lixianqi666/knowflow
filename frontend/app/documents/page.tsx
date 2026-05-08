@@ -192,31 +192,19 @@ export default function DocumentsPage() {
                     </option>
                   ))}
                 </select>
+                <button onClick={() => setShowCreateKb(!showCreateKb)}
+                  className="ml-1 px-3 py-1.5 text-xs font-medium rounded-lg border-none cursor-pointer transition-all"
+                  style={{ background: 'var(--c-primary)', color: '#fff' }}>
+                  + 新建知识库
+                </button>
                 <button
                   onClick={() => setRefreshKey((k) => k + 1)}
-                  className="p-1.5 rounded-md border-none cursor-pointer transition-colors"
+                  className="ml-auto p-1.5 rounded-md border-none cursor-pointer transition-colors"
                   style={{ color: 'var(--c-text-secondary)', background: 'transparent' }}
                   title="刷新"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => setShowCreateKb(!showCreateKb)}
-                  className="text-xs border-none cursor-pointer shrink-0"
-                  style={{ color: 'var(--c-primary)', background: 'none' }}
-                >
-                  +新建知识库
-                </button>
-                <span
-                  className="ml-auto px-2.5 py-1 rounded-full text-xs border"
-                  style={{
-                    color: 'var(--c-text-secondary)',
-                    background: '#f8fafc',
-                    borderColor: 'var(--c-border)',
-                  }}
-                >
-                  {selectedKb?.name || '全部知识库'}
-                </span>
               </div>
 
               {/* Quick Stats */}

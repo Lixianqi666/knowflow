@@ -3,106 +3,83 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '@/lib/api';
-import { Download, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Download, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
 
-interface Source {
-  title: string;
-  content?: string;
-  score: number;
-  chunk_id?: string;
-  document_id?: string;
-}
+interface Source { title: string; content?: string; score: number; chunk_id?: string; document_id?: string; }
 
 interface Props {
-  role: 'user' | 'assistant';
-  content: string;
-  sources?: Source[];
-  msgId?: string;
-  rating?: number | null;
+  role: 'user' | 'assistant'; content: string; sources?: Source[];
+  msgId?: string; rating?: number | null;
   onSourceClick?: (documentId: string, chunkId: string) => void;
   onRate?: (msgId: string, rating: number) => void;
 }
 
-export default function MessageBubble({
-  role,
-  content,
-  sources,
-  msgId,
-  rating,
-  onSourceClick,
-  onRate,
-}: Props) {
+export default function MessageBubble({ role, content, sources, msgId, rating, onSourceClick, onRate }: Props) {
   const isUser = role === 'user';
   const handleDownload = async (docId: string) => {
     try {
       const blob = await api.download(`/documents/${docId}/file`);
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = '';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {} // 静默失败，download 已 toast
+      const a = document.createElement('a'); a.href = url; a.download = '';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    } catch {}
   };
 
+  // 去掉 LLM 回复末尾的 JSON 结构化数据和来源标注（前端已用组件展示来源）
+  const cleanContent = (() => {
+    if (!content || isUser) return content;
+    let c = content
+      // 去掉 ```json { ... } ``` 块
+      .replace(/```json[\s\S]*?```/g, '')
+      // 去掉末尾的 { "answer": ... } JSON
+      .replace(/\s*\{[\s\S]*"answer"[\s\S]*"sources"[\s\S]*\}\s*$/, '')
+      // 去掉 LLM 自行添加的 [来源: xxx]（前端用独立组件展示）
+      .replace(/\[来源:\s*[^\]]+\]/g, '')
+      // 去掉来源后的空行
+      .replace(/\n{3,}/g, '\n\n');
+    return c.trim();
+  })();
+
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div
-        className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 ${
-          isUser
-            ? 'bg-blue-600 text-white rounded-br-md'
-            : 'bg-white text-gray-800 shadow-sm rounded-bl-md border'
-        }`}
-      >
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-5 animate-slide-up`}>
+      <div className={`max-w-[88%] md:max-w-[75%] rounded-2xl px-4 py-3 ${
+        isUser ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white text-[var(--c-text)] shadow-sm rounded-bl-sm border border-[var(--c-border)]/60'
+      }`}>
         {isUser ? (
-          <p className="whitespace-pre-wrap">{content}</p>
+          <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{content}</p>
         ) : (
-          <>
-            {content ? (
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{content}</ReactMarkdown>
-              </div>
+          <div className="text-[15px] leading-relaxed">
+            {cleanContent ? (
+              <div className="prose"><ReactMarkdown>{cleanContent}</ReactMarkdown></div>
             ) : (
-              <span className="inline-block w-2 h-4 bg-gray-300 animate-pulse rounded" />
+              <div className="flex items-center gap-1.5 py-1">
+                <span className="inline-block w-2 h-4 rounded-sm" style={{ background: 'var(--c-primary)', opacity: 0.4, animation: 'breathe 1.4s infinite' }} />
+                <span className="inline-block w-2 h-4 rounded-sm" style={{ background: 'var(--c-primary)', opacity: 0.3, animation: 'breathe 1.4s infinite 0.2s' }} />
+                <span className="inline-block w-2 h-4 rounded-sm" style={{ background: 'var(--c-primary)', opacity: 0.2, animation: 'breathe 1.4s infinite 0.4s' }} />
+              </div>
             )}
+
             {sources && sources.length > 0 && (
-              <div className="mt-3 pt-2 border-t border-gray-100">
-                <p className="text-xs text-gray-400 mb-2">引用来源</p>
+              <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--c-border)' }}>
+                <p className="text-xs font-medium mb-2" style={{ color: 'var(--c-text-tertiary)' }}>引用来源 ({sources.length})</p>
                 <div className="flex flex-wrap gap-1.5">
                   {sources.map((s, i) => {
                     const pct = Math.round(s.score * 100);
                     return (
-                      <div
-                        key={i}
-                        className="inline-flex items-stretch text-xs bg-gray-50 border border-gray-200 text-gray-600 rounded overflow-hidden"
-                      >
-                        <button
-                          onClick={() => onSourceClick?.(s.document_id!, s.chunk_id!)}
-                          className="flex items-center gap-1 px-2 py-1 hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer"
-                          title={s.content || ''}
-                        >
-                          <span className="max-w-[100px] truncate">{s.title}</span>
-                          <span
-                            className={`font-mono ${
-                              pct >= 80
-                                ? 'text-green-600'
-                                : pct >= 50
-                                  ? 'text-yellow-600'
-                                  : 'text-gray-400'
-                            }`}
-                          >
-                            {pct}%
-                          </span>
+                      <div key={i} className="inline-flex items-stretch text-xs rounded-lg overflow-hidden transition-all animate-fade-in"
+                        style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)', color: 'var(--c-text-secondary)' }}>
+                        <button onClick={() => onSourceClick?.(s.document_id!, s.chunk_id!)}
+                          className="flex items-center gap-1.5 px-2 py-1.5 transition-colors border-none cursor-pointer" style={{ background: 'none', color: 'inherit' }}>
+                          <FileText className="w-3 h-3 shrink-0" />
+                          <span className="max-w-[80px] truncate">{s.title}</span>
+                          <span className={`font-mono text-[10px] font-medium ${pct >= 80 ? 'text-green-600' : pct >= 50 ? 'text-yellow-600' : 'text-gray-400'}`}>{pct}%</span>
                         </button>
                         {s.document_id && (
-                          <button
-                            onClick={() => handleDownload(s.document_id!)}
-                            className="flex items-center px-1.5 border-l border-gray-200 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                            title="下载原文"
-                          >
-                            <Download className="w-3.5 h-3.5" />
+                          <button onClick={() => handleDownload(s.document_id!)}
+                            className="flex items-center px-1.5 transition-colors border-none cursor-pointer"
+                            style={{ borderLeft: '1px solid var(--c-border)', color: 'var(--c-text-tertiary)', background: 'none' }}>
+                            <Download className="w-3 h-3" />
                           </button>
                         )}
                       </div>
@@ -111,49 +88,28 @@ export default function MessageBubble({
                 </div>
               </div>
             )}
-            {/* 赞踩按钮 */}
+
             {msgId && content && rating === undefined && onRate && (
-              <div className="mt-2 flex items-center gap-2 text-gray-400">
-                <RatingButton
-                  icon={<ThumbsUp className="w-4 h-4" />}
-                  active={rating === 1}
-                  onClick={() => onRate(msgId, 1)}
-                />
-                <RatingButton
-                  icon={<ThumbsDown className="w-4 h-4" />}
-                  active={rating === -1}
-                  onClick={() => onRate(msgId, -1)}
-                />
+              <div className="mt-3 flex items-center gap-1">
+                <RatingButton icon={<ThumbsUp className="w-3.5 h-3.5" />} onClick={() => onRate(msgId, 1)} />
+                <RatingButton icon={<ThumbsDown className="w-3.5 h-3.5" />} onClick={() => onRate(msgId, -1)} />
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function RatingButton({
-  icon,
-  active,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-}) {
+function RatingButton({ icon, onClick }: { icon: React.ReactNode; onClick: () => void }) {
   const [done, setDone] = useState(false);
   return (
-    <button
-      onClick={() => {
-        onClick();
-        setDone(true);
-      }}
-      disabled={done}
-      className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
-        done ? 'opacity-30 cursor-default' : 'hover:bg-gray-100'
-      }`}
-    >
+    <button onClick={() => { onClick(); setDone(true); }} disabled={done}
+      className="flex items-center justify-center w-7 h-7 rounded-lg transition-all border-none cursor-pointer disabled:opacity-40"
+      style={{ color: 'var(--c-text-tertiary)', background: 'none' }}
+      onMouseEnter={e => { if (!done) { e.currentTarget.style.background = 'var(--c-bg)'; e.currentTarget.style.color = 'var(--c-primary)'; }}}
+      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--c-text-tertiary)'; }}>
       {icon}
     </button>
   );

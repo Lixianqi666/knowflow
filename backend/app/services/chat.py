@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import AsyncGenerator
 
 from sqlalchemy import func, select
@@ -96,14 +97,31 @@ class ChatService:
         else:
             messages = build_messages(system_prompt, context=context_text, history=history_msgs, question=search_query)
 
-        # 4. 流式生成
+        # 4. 流式生成（检测 JSON 边界后截断）
         _t1 = time.time()
         full_response = ""
+        json_started = False
         async for chunk in llm_service.stream_chat(messages):
+            if json_started:
+                full_response += chunk
+                continue
             full_response += chunk
+            # 检测 JSON 块开始（```json 或 单独一行的 {）
+            if '```json' in full_response or re.search(r'\n\s*\{', full_response):
+                json_started = True
+                # 只输出 JSON 之前的文本
+                if '```json' in full_response:
+                    text_part = full_response.split('```json')[0]
+                else:
+                    text_part = re.sub(r'\n\s*\{.*$', '', full_response, count=1)
+                # 重发截断后的最终文本
+                if text_part.strip():
+                    yield json.dumps({"type": "token", "data": text_part}, ensure_ascii=False)
+                continue
             yield json.dumps({"type": "token", "data": chunk}, ensure_ascii=False)
 
         # 5. 结构化解析
+        display_text = full_response
         if has_context:
             try:
                 parsed = parse_rag_response(full_response)
@@ -113,14 +131,21 @@ class ChatService:
                         "data": {"answer": parsed.answer, "sources": parsed.sources,
                                  "confidence": parsed.confidence, "has_sufficient_context": parsed.has_sufficient_context},
                     }, ensure_ascii=False)
+                    display_text = parsed.answer
             except Exception:
                 pass
+
+        # 清理显示文本
+        display_text = re.sub(r'```json[\s\S]*?```', '', display_text)
+        display_text = re.sub(r'\s*\{[\s\S]*"answer"[\s\S]*"sources"[\s\S]*\}\s*$', '', display_text)
+        display_text = re.sub(r'\[来源:\s*[^\]]+\]', '', display_text)
+        display_text = re.sub(r'\n{3,}', '\n\n', display_text).strip()
 
         await trigger_hooks("after_llm", query=user_message, token_count=len(full_response) // 2, elapsed=time.time() - _t1)
 
         # 6. 持久化
         self.db.add(Message(conversation_id=conversation_id, role="user", content=user_message))
-        self.db.add(Message(conversation_id=conversation_id, role="assistant", content=full_response, sources=sources))
+        self.db.add(Message(conversation_id=conversation_id, role="assistant", content=display_text, sources=sources))
         await self.db.flush()
         yield json.dumps({"type": "done"}, ensure_ascii=False)
 

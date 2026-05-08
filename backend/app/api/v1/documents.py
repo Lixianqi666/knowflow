@@ -16,7 +16,7 @@ from app.models.permission import DocumentPermission, SourcePermission
 from app.models.user import User
 from app.services.audit import log as audit_log
 from app.services.webhook import dispatch as webhook_dispatch
-from app.tasks.indexing import index_document_task
+
 
 router = APIRouter(prefix="/documents", tags=["文档"])
 
@@ -131,8 +131,11 @@ async def upload_file(
     db.add(DocumentPermission(document_id=doc.id, user_id=user.id, permission="read"))
     await db.flush()
 
-    # 异步索引（Celery 任务，不阻塞响应）
-    index_document_task.delay(str(doc.id))
+    # 同步索引（确保文档立即可检索）
+    from app.pipeline.indexer import index_document as _index_document
+
+    await _index_document(db, doc)
+    doc.status = "indexed"
 
     return {"id": str(doc.id), "title": doc.title, "status": doc.status}
 
@@ -332,7 +335,9 @@ async def batch_reindex(
             )
             if not perm.scalar_one_or_none():
                 continue
-        index_document_task.delay(str(uid))
+        from app.pipeline.indexer import index_document as _reindex
+
+        await _reindex(db, doc)
         triggered += 1
     return {"detail": f"已触发 {triggered} 个文档重新索引"}
 

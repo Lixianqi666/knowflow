@@ -24,6 +24,9 @@ services:
 
   backend:
     image: knowflow-fastapi:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://knowflow:${DB_PASSWORD:-knowflow}@postgres:5432/knowflow
       REDIS_URL: redis://redis:6379/0
@@ -54,6 +57,9 @@ services:
 
   worker:
     image: knowflow-ai-worker:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://knowflow:${DB_PASSWORD:-knowflow}@postgres:5432/knowflow
       REDIS_URL: redis://redis:6379/0
@@ -79,6 +85,9 @@ services:
 
   frontend:
     image: knowflow-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
     ports:

@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import {
-  ChevronLeft, Menu, X, Plus, type LucideIcon,
+  Menu, X, type LucideIcon,
   MessageSquare, FileText, Bot, Settings, LogOut, Search, Trash2,
 } from 'lucide-react';
 
@@ -25,7 +25,7 @@ export default function Sidebar() {
   const isChat = pathname?.startsWith('/chat');
   const {
     conversations, currentConvId, setCurrentConvId,
-    removeConversation, logout, user, sidebarCollapsed, toggleSidebar,
+    removeConversation, logout, user,
   } = useStore();
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -65,89 +65,100 @@ export default function Sidebar() {
   return (
     <>
       <button onClick={() => setMobileOpen(true)}
-        className="fixed top-2 left-2 z-30 p-2 rounded-lg shadow md:hidden border-none cursor-pointer"
+        className="fixed top-3 left-3 z-30 p-2 rounded-xl shadow-sm md:hidden border-none cursor-pointer transition-all hover:scale-105 active:scale-95"
         style={{ background: 'var(--c-surface)', color: 'var(--c-text-secondary)' }} aria-label="菜单">
         <Menu className="w-5 h-5" />
       </button>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={closeMobile}
-          style={{ background: 'rgba(15,23,42,.35)', backdropFilter: 'blur(2px)' }} />
+        <div className="fixed inset-0 z-40 md:hidden animate-fade-in"
+          style={{ background: 'rgba(15,23,42,.35)', backdropFilter: 'blur(2px)' }}
+          onClick={closeMobile} />
       )}
 
       <div
-        className="flex flex-col shrink-0 h-screen transition-all duration-200"
+        className={`flex flex-col shrink-0 h-screen overflow-hidden transition-all duration-300 md:w-[280px] md:min-w-[280px] ${mobileOpen ? 'w-[280px] min-w-[280px]' : 'w-0 min-w-0'}`}
         style={{
-          width: sidebarCollapsed && !mobileOpen ? 0 : 280,
-          minWidth: sidebarCollapsed && !mobileOpen ? 0 : 280,
-          overflow: 'hidden',
-          background: 'rgba(255,255,255,.95)',
-          backdropFilter: 'blur(8px)',
+          background: 'rgba(255,255,255,.96)',
+          backdropFilter: 'blur(12px)',
           borderRight: '1px solid var(--c-border)',
           boxShadow: 'var(--shadow-sm)',
           position: mobileOpen ? 'fixed' : undefined,
           left: 0, top: 0, zIndex: 50,
         }}>
         {/* Brand + New chat */}
-        <div className="flex items-center justify-between px-4 py-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <button onClick={() => { setCurrentConvId(null); nav('/chat'); }}
-              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 border-none cursor-pointer transition-all shrink-0" title="新对话">
-              <Plus className="w-5 h-5" />
-            </button>
-            <span className="text-sm font-semibold" style={{ color: 'var(--c-text)', letterSpacing: '-.2px' }}>KnowFlow</span>
+        <div className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-[var(--c-border)]/50">
+          <div>
+            <span className="text-sm font-semibold tracking-tight" style={{ color: 'var(--c-text)' }}>KnowFlow</span>
+            <span className="text-[10px] block leading-none mt-0.5" style={{ color: 'var(--c-text-tertiary)' }}>知识库</span>
           </div>
-          <button onClick={toggleSidebar}
-            className="p-1 rounded hover:bg-gray-100 transition-colors max-md:hidden border-none cursor-pointer"
-            style={{ color: 'var(--c-text-tertiary)' }} title="收起侧边栏">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
           <button onClick={closeMobile}
-            className="p-1 rounded hover:bg-gray-100 transition-colors md:hidden border-none cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors md:hidden border-none cursor-pointer"
             style={{ color: 'var(--c-text-tertiary)' }} title="关闭">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="px-3 pb-2 shrink-0">
+        <div className="px-3 py-2 shrink-0">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ width: 14, height: 14, color: 'var(--c-text-tertiary)' }} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ width: 14, height: 14, color: 'var(--c-text-tertiary)' }} />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="搜索对话..."
-              className="w-full text-sm rounded-lg pl-8 pr-3 py-2 border outline-none transition-all"
-              style={{ borderColor: 'var(--c-border)', color: 'var(--c-text)', background: 'var(--c-bg)' }}
-              onFocus={e => { e.target.style.borderColor = 'var(--c-primary)'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,.1)'; }}
-              onBlur={e => { e.target.style.borderColor = 'var(--c-border)'; e.target.style.boxShadow = 'none'; }} />
+              className="w-full text-sm rounded-xl pl-8 pr-3 py-2 border outline-none transition-all"
+              style={{
+                borderColor: 'var(--c-border)',
+                color: 'var(--c-text)',
+                background: 'var(--c-bg)',
+              }}
+              onFocus={e => {
+                e.target.style.borderColor = 'var(--c-primary)';
+                e.target.style.boxShadow = '0 0 0 3px var(--c-primary-ring)';
+                e.target.style.background = 'var(--c-surface)';
+              }}
+              onBlur={e => {
+                e.target.style.borderColor = 'var(--c-border)';
+                e.target.style.boxShadow = 'none';
+                e.target.style.background = 'var(--c-bg)';
+              }} />
           </div>
         </div>
 
         {/* Conversation list */}
-        <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 space-y-0.5">
           {filtered.length === 0 && search ? (
-            <p className="text-xs text-center py-8" style={{ color: 'var(--c-text-tertiary)' }}>未找到匹配的对话</p>
+            <p className="text-xs text-center py-8 animate-fade-in" style={{ color: 'var(--c-text-tertiary)' }}>未找到匹配的对话</p>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-xs" style={{ color: 'var(--c-text-tertiary)' }}>暂无对话</p>
+            <div className="flex flex-col items-center justify-center py-12 text-center animate-fade-in">
+              <MessageSquare className="w-8 h-8 mb-3" style={{ color: 'var(--c-text-tertiary)', opacity: 0.4 }} />
+              <p className="text-xs mb-2" style={{ color: 'var(--c-text-tertiary)' }}>暂无对话</p>
               <button onClick={() => { setCurrentConvId(null); nav('/chat'); }}
-                className="text-xs mt-2 border-none cursor-pointer" style={{ color: 'var(--c-primary)', background: 'none' }}>
+                className="text-xs font-medium border-none cursor-pointer transition-colors hover:underline"
+                style={{ color: 'var(--c-primary)', background: 'none' }}>
                 开始新对话
               </button>
             </div>
-          ) : filtered.map(conv => (
-            <div key={conv.id} className="group relative rounded-lg text-sm"
-              style={{ background: currentConvId === conv.id ? 'var(--c-primary-subtle)' : 'transparent' }}>
+          ) : filtered.map((conv, idx) => (
+            <div key={conv.id}
+              className="group relative rounded-xl text-sm transition-all animate-slide-up"
+              style={{
+                animationDelay: `${idx * 20}ms`,
+                background: currentConvId === conv.id ? 'var(--c-primary-subtle)' : 'transparent',
+              }}>
               <button onClick={() => { setCurrentConvId(conv.id); router.push(`/chat/${conv.id}`); closeMobile(); }}
-                className="w-full text-left px-3 py-2.5 truncate border-none cursor-pointer rounded-lg transition-colors"
+                className="w-full text-left px-3 py-2.5 truncate rounded-xl border-none cursor-pointer transition-all"
                 style={{
                   color: currentConvId === conv.id ? 'var(--c-primary)' : 'var(--c-text-secondary)',
                   fontWeight: currentConvId === conv.id ? 500 : 400,
                   background: 'transparent',
                 }}>
-                {conv.title || '新对话'}
+                <span className="inline-flex items-center gap-2">
+                  <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ opacity: 0.6 }} />
+                  {conv.title || '新对话'}
+                </span>
               </button>
               <div className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden group-hover:flex gap-0.5">
                 <button onClick={e => { e.stopPropagation(); setConfirmTarget(conv.id); }} disabled={deleting}
-                  className="p-1 rounded border-none cursor-pointer transition-colors disabled:opacity-50"
+                  className="p-1.5 rounded-lg border-none cursor-pointer transition-all disabled:opacity-50 hover:bg-[var(--c-error-subtle)] hover:text-[var(--c-error)]"
                   style={{ color: 'var(--c-text-tertiary)', background: 'none' }} title="删除">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -159,33 +170,36 @@ export default function Sidebar() {
         {/* Bottom: Nav + User */}
         <div className="shrink-0 border-t" style={{ borderColor: 'var(--c-border)' }}>
           {/* Nav icons */}
-          <div className="flex px-2 py-1.5 gap-0.5">
+          <div className="flex px-2 py-2 gap-1">
             {navItems.map(item => {
               const active = isActive(item.path);
               return (
                 <button key={item.path} onClick={() => nav(item.path)}
-                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-lg border-none cursor-pointer transition-all text-xs"
+                  className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl border-none cursor-pointer transition-all text-xs"
                   style={{
                     color: active ? 'var(--c-primary)' : 'var(--c-text-tertiary)',
                     background: active ? 'var(--c-primary-subtle)' : 'transparent',
                     fontWeight: active ? 500 : 400,
                   }}>
                   <item.icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <span className="text-[10px]">{item.label}</span>
                 </button>
               );
             })}
           </div>
           {/* User */}
           <div className="flex items-center gap-2.5 px-4 py-2.5 border-t" style={{ borderColor: 'var(--c-border)' }}>
-            <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
+            <div className="w-8 h-8 rounded-full brand-gradient flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-sm">
               {initial}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{user?.name || '未登录'}</div>
+              <div className="text-sm font-medium truncate" style={{ color: 'var(--c-text)' }}>{user?.name || '未登录'}</div>
+              <div className="text-[10px]" style={{ color: 'var(--c-text-tertiary)' }}>
+                {user?.role === 'admin' ? '管理员' : '成员'}
+              </div>
             </div>
             <button onClick={() => { logout(); router.push('/login'); }}
-              className="p-1.5 rounded transition-colors border-none cursor-pointer"
+              className="p-2 rounded-xl transition-all border-none cursor-pointer hover:bg-[var(--c-error-subtle)] hover:text-[var(--c-error)]"
               style={{ color: 'var(--c-text-tertiary)', background: 'none' }} title="退出">
               <LogOut className="w-4 h-4" />
             </button>
