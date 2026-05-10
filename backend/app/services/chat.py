@@ -133,9 +133,14 @@ class ChatService:
             try:
                 tmpl = await self.db.get(PromptTemplate, template_id)
                 if tmpl and tmpl.is_active:
-                    sp = tmpl.context_prompt if has_context else tmpl.no_context_prompt
-                    if sp:
-                        system_prompt = sp
+                    if has_context:
+                        # 模板的 system_prompt 作为角色设定，RAG_SYSTEM 的规则作为强制约束
+                        role = tmpl.system_prompt or "你是KnowFlow智能助手。"
+                        system_prompt = f"{role}\n\n{RAG_SYSTEM}"
+                    else:
+                        sp = tmpl.no_context_prompt
+                        if sp:
+                            system_prompt = sp
             except Exception:
                 pass
 
@@ -145,7 +150,7 @@ class ChatService:
             else "未找到相关文档内容。"
         )
 
-        if system_prompt is NO_CONTEXT_SYSTEM:
+        if not has_context:
             messages = build_messages(system_prompt, history=history_msgs, question=search_query)
         else:
             messages = build_messages(
