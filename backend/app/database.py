@@ -24,4 +24,7 @@ async def get_db():
 async def init_db():
     async with engine.begin() as conn:
         await conn.execute(__import__("sqlalchemy").text("CREATE EXTENSION IF NOT EXISTS vector"))
-        await conn.run_sync(Base.metadata.create_all)
+        try:
+            await conn.run_sync(Base.metadata.create_all)
+        except Exception:
+            pass  # 表已存在时忽略
