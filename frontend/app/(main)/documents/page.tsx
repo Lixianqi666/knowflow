@@ -14,7 +14,7 @@ interface KB {
 }
 
 export default function DocumentsPage() {
-  const { token, _hydrated, setConversations } = useStore();
+  const { token, _hydrated } = useStore();
   const [showUpload, setShowUpload] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -29,10 +29,6 @@ export default function DocumentsPage() {
     api
       .get<KB[]>('/knowledge-bases')
       .then((items) => setKbs(Array.isArray(items) ? items : []))
-      .catch(() => {});
-    api
-      .get<any[]>('/chat/conversations')
-      .then((items) => setConversations(Array.isArray(items) ? items : []))
       .catch(() => {});
   }, [token]);
   useEffect(() => {

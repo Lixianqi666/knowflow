@@ -7,16 +7,12 @@ import { api } from '@/lib/api';
 
 export default function AgentsPage() {
   const router = useRouter();
-  const { token, agents, setAgents, setConversations } = useStore();
+  const { token, agents, setAgents } = useStore();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!token) return;
     loadAgents();
-    api
-      .get<any[]>('/chat/conversations')
-      .then((items) => setConversations(Array.isArray(items) ? items : []))
-      .catch(() => {});
   }, [token]);
 
   const loadAgents = async () => {

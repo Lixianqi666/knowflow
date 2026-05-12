@@ -47,9 +47,12 @@ interface Store {
   setCurrentConvId: (id: string | null) => void;
 
   messages: Message[];
+  messagesCache: Record<string, Message[]>; // 按对话ID缓存消息
   addMessage: (msg: Message) => void;
   updateLastAssistant: (content: string) => void;
   setMessages: (msgs: Message[]) => void;
+  setCachedMessages: (convId: string, msgs: Message[]) => void;
+  clearMessagesCache: () => void;
 
   sources: any[];
   setSources: (s: any[]) => void;
@@ -118,6 +121,7 @@ export const useStore = create<Store>((set, get) => ({
       conversations: [],
       currentConvId: null,
       messages: [],
+      messagesCache: {},
       chatError: null,
     });
   },
@@ -133,6 +137,7 @@ export const useStore = create<Store>((set, get) => ({
   setCurrentConvId: (currentConvId) => set({ currentConvId }),
 
   messages: [],
+  messagesCache: {},
   addMessage: (msg) => set((s) => ({ messages: [...asArray<Message>(s.messages), msg] })),
   updateLastAssistant: (content) =>
     set((s) => {
@@ -144,6 +149,9 @@ export const useStore = create<Store>((set, get) => ({
       return { messages: msgs };
     }),
   setMessages: (messages) => set({ messages: asArray<Message>(messages) }),
+  setCachedMessages: (convId, msgs) =>
+    set((s) => ({ messagesCache: { ...s.messagesCache, [convId]: asArray<Message>(msgs) } })),
+  clearMessagesCache: () => set({ messagesCache: {} }),
 
   sources: [],
   setSources: (sources) => set({ sources: asArray(sources) }),

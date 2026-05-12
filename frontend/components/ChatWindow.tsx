@@ -27,6 +27,8 @@ export default function ChatWindow() {
     loadingMessages,
     setLoadingMessages,
     setMessages,
+    setCachedMessages,
+    messagesCache,
     activeSource,
     setActiveSource,
   } = useStore();
@@ -56,12 +58,16 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!currentConvId) return;
     if (streaming) return;
-    setLoadingMessages(true);
-    api
-      .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
-      .then((msgs) =>
-        setMessages(
-          Array.isArray(msgs)
+
+    // 有缓存时直接使用，不显示加载状态
+    const cached = messagesCache[currentConvId];
+    if (cached) {
+      setMessages(cached);
+      // 后台静默刷新
+      api
+        .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
+        .then((msgs) => {
+          const mapped = Array.isArray(msgs)
             ? msgs.map((m: any) => ({
                 id: m.id,
                 role: m.role,
@@ -69,9 +75,31 @@ export default function ChatWindow() {
                 sources: m.sources || undefined,
                 rating: m.rating,
               }))
-            : [],
-        ),
-      )
+            : [];
+          setMessages(mapped);
+          setCachedMessages(currentConvId, mapped);
+        })
+        .catch(() => {});
+      return;
+    }
+
+    // 无缓存时显示加载状态
+    setLoadingMessages(true);
+    api
+      .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
+      .then((msgs) => {
+        const mapped = Array.isArray(msgs)
+          ? msgs.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              sources: m.sources || undefined,
+              rating: m.rating,
+            }))
+          : [];
+        setMessages(mapped);
+        setCachedMessages(currentConvId, mapped);
+      })
       .catch((e) => setChatError(`加载失败: ${e.message}`))
       .finally(() => setLoadingMessages(false));
   }, [currentConvId, streaming]);
