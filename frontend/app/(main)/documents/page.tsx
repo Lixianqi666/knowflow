@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
-import Sidebar from '@/components/Sidebar';
 import UploadDialog from '@/components/UploadDialog';
 import DocList from '@/components/DocList';
 import { Search, Plus, RefreshCw } from 'lucide-react';
@@ -16,8 +14,7 @@ interface KB {
 }
 
 export default function DocumentsPage() {
-  const router = useRouter();
-  const { token, hydrate, _hydrated, setConversations } = useStore();
+  const { token, _hydrated, setConversations } = useStore();
   const [showUpload, setShowUpload] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -28,13 +25,7 @@ export default function DocumentsPage() {
   const [searchVal, setSearchVal] = useState('');
 
   useEffect(() => {
-    hydrate();
-  }, []);
-  useEffect(() => {
-    if (!useStore.getState().token) {
-      router.replace('/login');
-      return;
-    }
+    if (!token) return;
     api
       .get<KB[]>('/knowledge-bases')
       .then((items) => setKbs(Array.isArray(items) ? items : []))
@@ -78,18 +69,13 @@ export default function DocumentsPage() {
     } catch {}
   };
 
-  const selectedKb = kbs.find((k) => k.id === currentKbId);
-
   if (!_hydrated || !token) return null;
 
   return (
-    <div className="flex h-screen" style={{ background: 'var(--c-bg)' }}>
-      <Sidebar />
-
+    <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--c-bg)' }}>
       <div
         className="flex-1 flex flex-col overflow-hidden"
         onDragOver={(e) => {
-          // 只对文件拖拽响应，忽略文本/链接拖拽
           if (e.dataTransfer.types.includes('Files')) {
             e.preventDefault();
             setDragging(true);
@@ -256,7 +242,6 @@ export default function DocumentsPage() {
           }}
           onDragLeave={(e) => {
             e.preventDefault();
-            // 只在离开整个区域时才关闭
             if (e.currentTarget === e.target) setDragging(false);
           }}
           onDrop={handleDrop}
@@ -267,7 +252,6 @@ export default function DocumentsPage() {
               background: 'rgba(255,255,255,.95)',
               border: '2px dashed var(--c-primary)',
               boxShadow: '0 20px 60px rgba(37,99,235,.15)',
-              transform: 'scale(1)',
             }}
           >
             <svg
