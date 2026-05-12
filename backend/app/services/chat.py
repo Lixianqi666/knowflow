@@ -160,6 +160,7 @@ class ChatService:
         # 4. 流式生成（检测 JSON 边界后截断）
         _t1 = time.time()
         full_response = ""
+        streamed_text = ""  # 实际发送给前端的完整文本
         json_started = False
         async for chunk in llm_service.stream_chat(messages):
             if json_started:
@@ -174,14 +175,14 @@ class ChatService:
                     text_part = full_response.split("```json")[0]
                 else:
                     text_part = re.sub(r"\n\s*\{.*$", "", full_response, count=1)
-                # 重发截断后的最终文本
                 if text_part.strip():
+                    streamed_text = text_part
                     yield json.dumps({"type": "token", "data": text_part}, ensure_ascii=False)
                 continue
+            streamed_text += chunk
             yield json.dumps({"type": "token", "data": chunk}, ensure_ascii=False)
 
-        # 5. 结构化解析
-        display_text = full_response
+        # 5. 结构化解析（仅用于发送 structured 事件，不影响持久化文本）
         if has_context:
             try:
                 parsed = parse_rag_response(full_response)
@@ -198,16 +199,11 @@ class ChatService:
                         },
                         ensure_ascii=False,
                     )
-                    display_text = parsed.answer
             except Exception:
                 pass
 
-        # 清理显示文本
-        display_text = re.sub(r"```json[\s\S]*?```", "", display_text)
-        display_text = re.sub(
-            r'\s*\{[\s\S]*"answer"[\s\S]*"sources"[\s\S]*\}\s*$', "", display_text
-        )
-        display_text = re.sub(r"\[来源:\s*[^\]]+\]", "", display_text)
+        # 持久化文本 = 实际发送给前端的文本（清理多余空行即可）
+        display_text = re.sub(r"\[来源:\s*[^\]]+\]", "", streamed_text)
         display_text = re.sub(r"\n{3,}", "\n\n", display_text).strip()
 
         await trigger_hooks(
