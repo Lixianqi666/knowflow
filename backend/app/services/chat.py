@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 from typing import AsyncGenerator
 
 from sqlalchemy import func, select
@@ -93,8 +94,6 @@ class ChatService:
         await self.db.flush()
 
         # 3. 查询改写 + 检索
-        import time
-
         history_summary = " ".join(m["content"][:60] for m in history_msgs[-4:])
         search_query = await rewrite_query(user_message, history_summary)
         _t0 = time.time()

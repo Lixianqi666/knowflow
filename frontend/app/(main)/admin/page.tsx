@@ -92,7 +92,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 export default function AdminPage() {
   const router = useRouter();
-  const { token, user, setConversations } = useStore();
+  const { token, user } = useStore();
   const [tab, setTab] = useState<
     'users' | 'stats' | 'permissions' | 'templates' | 'agents' | 'audit'
   >('users');
@@ -178,10 +178,6 @@ export default function AdminPage() {
       return;
     }
     loadData();
-    api
-      .get<any[]>('/chat/conversations')
-      .then((items) => setConversations(Array.isArray(items) ? items : []))
-      .catch(() => {});
   }, [token]);
 
   useEffect(() => {

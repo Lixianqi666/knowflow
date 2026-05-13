@@ -9,6 +9,18 @@ import InputBox from './InputBox';
 import SourceViewer from './SourceViewer';
 import { MessageSquare } from 'lucide-react';
 
+function mapApiMessages(msgs: any[]) {
+  return Array.isArray(msgs)
+    ? msgs.map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        sources: m.sources || undefined,
+        rating: m.rating,
+      }))
+    : [];
+}
+
 export default function ChatWindow() {
   const router = useRouter();
   const {
@@ -67,15 +79,7 @@ export default function ChatWindow() {
       api
         .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
         .then((msgs) => {
-          const mapped = Array.isArray(msgs)
-            ? msgs.map((m: any) => ({
-                id: m.id,
-                role: m.role,
-                content: m.content,
-                sources: m.sources || undefined,
-                rating: m.rating,
-              }))
-            : [];
+          const mapped = mapApiMessages(msgs);
           setMessages(mapped);
           setCachedMessages(currentConvId, mapped);
         })
@@ -88,15 +92,7 @@ export default function ChatWindow() {
     api
       .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
       .then((msgs) => {
-        const mapped = Array.isArray(msgs)
-          ? msgs.map((m: any) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              sources: m.sources || undefined,
-              rating: m.rating,
-            }))
-          : [];
+        const mapped = mapApiMessages(msgs);
         setMessages(mapped);
         setCachedMessages(currentConvId, mapped);
       })

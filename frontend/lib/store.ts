@@ -52,7 +52,6 @@ interface Store {
   updateLastAssistant: (content: string) => void;
   setMessages: (msgs: Message[]) => void;
   setCachedMessages: (convId: string, msgs: Message[]) => void;
-  clearMessagesCache: () => void;
 
   sources: any[];
   setSources: (s: any[]) => void;
@@ -151,7 +150,6 @@ export const useStore = create<Store>((set, get) => ({
   setMessages: (messages) => set({ messages: asArray<Message>(messages) }),
   setCachedMessages: (convId, msgs) =>
     set((s) => ({ messagesCache: { ...s.messagesCache, [convId]: asArray<Message>(msgs) } })),
-  clearMessagesCache: () => set({ messagesCache: {} }),
 
   sources: [],
   setSources: (sources) => set({ sources: asArray(sources) }),
