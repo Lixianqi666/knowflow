@@ -1,3 +1,4 @@
+from app.agent_runtime.memory import ShortTermMemory
 from app.agent_runtime.schemas import AgentAction, AgentObservation, AgentState, AgentStep
 
 
@@ -24,3 +25,17 @@ def test_agent_step_records_action_and_observation():
     assert step.index == 1
     assert step.observation.status == "ok"
     assert step.latency_ms == 12
+
+
+def test_short_term_memory_limits_recent_messages():
+    memory = ShortTermMemory(max_messages=3)
+    rows = [
+        {"role": "user", "content": "m1"},
+        {"role": "assistant", "content": "m2"},
+        {"role": "user", "content": "m3"},
+        {"role": "assistant", "content": "m4"},
+    ]
+
+    result = memory.select(rows)
+
+    assert [m["content"] for m in result] == ["m2", "m3", "m4"]
