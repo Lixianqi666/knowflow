@@ -128,3 +128,14 @@ async def test_langgraph_runtime_detects_repeated_action():
 
     assert result.finished is True
     assert len(result.steps) <= 3
+
+
+@pytest.mark.asyncio
+async def test_langgraph_runtime_keeps_run_id():
+    registry = ToolRegistry()
+    runtime = AgentRuntime(tool_registry=registry, max_steps=1)
+
+    result = await runtime.run(goal="帮他报销差旅费", ctx=ToolContext(user_id="u1"))
+
+    assert result.run_id
+    assert result.finished is True
