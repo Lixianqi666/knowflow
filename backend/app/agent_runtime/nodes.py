@@ -4,6 +4,7 @@ from typing import Any, TypedDict
 from app.agent_runtime.planner import RuleBasedPlanner
 from app.agent_runtime.schemas import AgentAction, AgentObservation, AgentState, AgentStep
 from app.agent_runtime.tools import ToolContext, ToolRegistry
+from app.core.metrics import agent_step_duration_seconds, agent_steps_total, agent_tool_calls_total
 
 
 class GraphState(TypedDict, total=False):
@@ -66,6 +67,12 @@ async def tool_executor_node(state: GraphState) -> dict[str, Any]:
     started = time.time()
     result = await registry.call(action.tool_name or "", action.arguments, ctx)
     latency_ms = int((time.time() - started) * 1000)
+
+    # 记录指标
+    agent_steps_total.labels(phase="act").inc()
+    agent_tool_calls_total.labels(tool=action.tool_name or "unknown", status=result.status).inc()
+    agent_step_duration_seconds.labels(phase="act").observe(latency_ms / 1000)
+
     observation = AgentObservation(
         status="ok" if result.status == "ok" else "error",
         content=result.content,

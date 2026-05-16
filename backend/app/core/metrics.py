@@ -13,6 +13,15 @@ http_request_duration_seconds = Histogram(
 )
 http_requests_in_progress = Gauge("http_requests_in_progress", "当前正在处理的请求数", ["method"])
 documents_indexed_total = Counter("documents_indexed_total", "已索引文档总数")
+agent_runs_total = Counter("agent_runs_total", "Agent 运行总数", ["status"])
+agent_steps_total = Counter("agent_steps_total", "Agent 步骤总数", ["phase"])
+agent_tool_calls_total = Counter("agent_tool_calls_total", "Agent 工具调用总数", ["tool", "status"])
+agent_step_duration_seconds = Histogram(
+    "agent_step_duration_seconds",
+    "Agent 单步耗时分布（秒）",
+    ["phase"],
+    buckets=(0.05, 0.1, 0.5, 1, 2, 5, 10, 30),
+)
 llm_requests_total = Counter("llm_requests_total", "LLM 请求总数", ["operation"])
 llm_request_duration_seconds = Histogram(
     "llm_request_duration_seconds",
