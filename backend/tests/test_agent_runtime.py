@@ -1,4 +1,5 @@
 from app.agent_runtime.memory import ShortTermMemory
+from app.agent_runtime.planner import RuleBasedPlanner
 from app.agent_runtime.schemas import AgentAction, AgentObservation, AgentState, AgentStep
 from app.agent_runtime.trace import step_to_event
 
@@ -53,3 +54,24 @@ def test_step_to_event_serializes_trace():
     assert event["data"]["step_index"] == 1
     assert event["data"]["action"]["tool_name"] == "search_policy"
     assert event["data"]["observation"]["content"] == "找到政策"
+
+
+def test_planner_starts_with_policy_search_for_reimbursement():
+    planner = RuleBasedPlanner()
+    state = AgentState(goal="帮张三报销上海出差费用")
+
+    action = planner.next_action(state, available_tools=["search_policy", "get_employee"])
+
+    assert action.action_type == "tool"
+    assert action.tool_name == "search_policy"
+    assert "报销" in action.arguments["query"]
+
+
+def test_planner_clarifies_when_missing_employee():
+    planner = RuleBasedPlanner()
+    state = AgentState(goal="帮他报销差旅费")
+
+    action = planner.next_action(state, available_tools=["search_policy", "get_employee"])
+
+    assert action.action_type == "clarify"
+    assert "员工" in action.question
