@@ -7,13 +7,16 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent_runtime.business_tools import build_business_tool_registry
+from app.agent_runtime.runtime import AgentRuntime
+from app.agent_runtime.tools import ToolContext
+from app.agent_runtime.trace import step_to_event
 from app.core.deps import get_current_admin
 from app.core.security import get_current_user
 from app.database import async_session, get_db
 from app.models.agent import Agent
 from app.models.agent_session import AgentMessage, AgentSession
 from app.models.user import User
-from app.services.agent import AgentService
 
 router = APIRouter(prefix="/agents", tags=["Agent 应用"])
 
@@ -327,15 +330,36 @@ async def send_message(
         if not session or session.user_id != user.id:
             raise HTTPException(status_code=404, detail="会话不存在")
 
-        agent_service = AgentService(db)
-
         async def event_stream():
             try:
-                async for event in agent_service.stream_chat(
-                    str(session_id), data.content, str(user.id), user.role == "admin"
-                ):
-                    yield f"data: {event}\n\n"
+                registry = build_business_tool_registry()
+                runtime = AgentRuntime(tool_registry=registry, max_steps=8)
+                ctx = ToolContext(
+                    user_id=str(user.id),
+                    session_id=str(session_id),
+                    is_admin=user.role == "admin",
+                    db=db,
+                )
+                state = await runtime.run(data.content, ctx)
+
+                for step in state.steps:
+                    yield f"data: {json.dumps(step_to_event(step), ensure_ascii=False)}\n\n"
+
+                if state.clarify_question:
+                    db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
+                    db.add(AgentMessage(session_id=session_id, role="assistant", content=state.clarify_question, sources=[]))
+                    yield f"data: {json.dumps({'type': 'token', 'data': state.clarify_question}, ensure_ascii=False)}\n\n"
+                elif state.final_answer:
+                    db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
+                    db.add(AgentMessage(session_id=session_id, role="assistant", content=state.final_answer, sources=[]))
+                    yield f"data: {json.dumps({'type': 'token', 'data': state.final_answer}, ensure_ascii=False)}\n\n"
+                elif state.failure_reason:
+                    yield f"data: {json.dumps({'type': 'error', 'data': state.failure_reason}, ensure_ascii=False)}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'error', 'data': 'Agent 未产生有效结果'}, ensure_ascii=False)}\n\n"
+
                 await db.commit()
+                yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
             except Exception as e:
                 import logging
 
