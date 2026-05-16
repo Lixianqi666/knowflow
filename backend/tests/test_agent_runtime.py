@@ -1,6 +1,11 @@
+import pytest
+
+from app.agent_runtime.graph import build_agent_graph
 from app.agent_runtime.memory import ShortTermMemory
 from app.agent_runtime.planner import RuleBasedPlanner
+from app.agent_runtime.runtime import AgentRuntime
 from app.agent_runtime.schemas import AgentAction, AgentObservation, AgentState, AgentStep
+from app.agent_runtime.tools import ToolContext, ToolRegistry, ToolResult
 from app.agent_runtime.trace import step_to_event
 
 
@@ -75,3 +80,51 @@ def test_planner_clarifies_when_missing_employee():
 
     assert action.action_type == "clarify"
     assert "员工" in action.question
+
+
+async def done_tool(ctx: ToolContext, **kwargs):
+    return ToolResult(status="ok", content="申请已提交", data={"request_id": "R001"})
+
+
+def test_build_agent_graph_returns_compiled_graph():
+    registry = ToolRegistry()
+    graph = build_agent_graph(registry)
+
+    assert hasattr(graph, "invoke")
+
+
+@pytest.mark.asyncio
+async def test_langgraph_runtime_records_tool_step():
+    registry = ToolRegistry()
+    registry.register("search_policy", done_tool, description="查询政策")
+    runtime = AgentRuntime(tool_registry=registry, max_steps=1)
+
+    result = await runtime.run(goal="帮张三报销上海出差费用", ctx=ToolContext(user_id="u1"))
+
+    assert len(result.steps) == 1
+    assert result.steps[0].action.tool_name == "search_policy"
+    assert result.steps[0].observation.content == "申请已提交"
+
+
+@pytest.mark.asyncio
+async def test_langgraph_runtime_stops_at_max_steps():
+    registry = ToolRegistry()
+    registry.register("search_policy", done_tool, description="查询政策")
+    runtime = AgentRuntime(tool_registry=registry, max_steps=1)
+
+    result = await runtime.run(goal="帮张三报销上海出差费用", ctx=ToolContext(user_id="u1"))
+
+    assert result.finished is True
+    assert len(result.steps) <= 1
+
+
+@pytest.mark.asyncio
+async def test_langgraph_runtime_detects_repeated_action():
+    registry = ToolRegistry()
+    registry.register("search_policy", done_tool, description="查询政策")
+    runtime = AgentRuntime(tool_registry=registry, max_steps=3)
+
+    result = await runtime.run(goal="普通问题", ctx=ToolContext(user_id="u1"))
+
+    assert result.finished is True
+    assert len(result.steps) <= 3

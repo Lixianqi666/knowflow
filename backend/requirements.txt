@@ -28,3 +28,4 @@ black>=24.0
 isort>=5.13
 flake8>=7.0
 pip-audit>=2.7
+langgraph>=0.2.0
