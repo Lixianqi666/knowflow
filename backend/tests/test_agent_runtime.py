@@ -1,5 +1,6 @@
 from app.agent_runtime.memory import ShortTermMemory
 from app.agent_runtime.schemas import AgentAction, AgentObservation, AgentState, AgentStep
+from app.agent_runtime.trace import step_to_event
 
 
 def test_agent_state_defaults():
@@ -39,3 +40,16 @@ def test_short_term_memory_limits_recent_messages():
     result = memory.select(rows)
 
     assert [m["content"] for m in result] == ["m2", "m3", "m4"]
+
+
+def test_step_to_event_serializes_trace():
+    action = AgentAction(action_type="tool", tool_name="search_policy", arguments={"query": "报销"})
+    observation = AgentObservation(status="ok", content="找到政策")
+    step = AgentStep(index=1, phase="act", thought="需要查政策", action=action, observation=observation)
+
+    event = step_to_event(step)
+
+    assert event["type"] == "trace"
+    assert event["data"]["step_index"] == 1
+    assert event["data"]["action"]["tool_name"] == "search_policy"
+    assert event["data"]["observation"]["content"] == "找到政策"
