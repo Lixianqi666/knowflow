@@ -17,6 +17,7 @@ import app.models.conversation  # noqa
 import app.models.permission  # noqa
 import app.models.agent  # noqa
 import app.models.agent_session  # noqa
+import app.models.agent_trace  # noqa
 import pgvector.sqlalchemy  # noqa — 注册 Vector 类型
 
 config = context.config
