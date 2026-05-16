@@ -92,13 +92,13 @@ const ACTION_LABELS: Record<string, string> = {
 
 export default function AdminPage() {
   const router = useRouter();
-  const { token, user } = useStore();
+  const { token, user, adminUsers, setAdminUsers, adminStats, setAdminStats } = useStore();
   const [tab, setTab] = useState<
     'users' | 'stats' | 'permissions' | 'templates' | 'agents' | 'audit'
   >('users');
-  const [users, setUsers] = useState<User[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<User[]>(adminUsers);
+  const [stats, setStats] = useState<Stats | null>(adminStats);
+  const [loading, setLoading] = useState(!adminUsers.length);
   const [error, setError] = useState('');
 
   const [docs, setDocs] = useState<DocItem[]>([]);
@@ -192,6 +192,8 @@ export default function AdminPage() {
   }, []);
 
   const loadData = async () => {
+    // store 已有数据时直接使用，不重新请求
+    if (useStore.getState().adminUsers.length && useStore.getState().adminStats) return;
     setLoading(true);
     setError('');
     try {
@@ -201,6 +203,8 @@ export default function AdminPage() {
       ]);
       setUsers(u);
       setStats(s);
+      setAdminUsers(u);
+      setAdminStats(s);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -465,7 +469,7 @@ export default function AdminPage() {
                           }}
                           className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
                         >
-                          + 授予权限
+                          授予权限
                         </button>
                         {isSearching && (
                           <div className="absolute right-0 top-full mt-1 w-72 bg-white border rounded-xl shadow-lg z-10">
@@ -561,7 +565,7 @@ export default function AdminPage() {
                 }
                 className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                + 新建场景
+                新建场景
               </button>
             </div>
             <div className="space-y-2">
@@ -799,7 +803,7 @@ export default function AdminPage() {
                 }
                 className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                + 新建 Agent
+                新建 Agent
               </button>
             </div>
             <div className="space-y-2">

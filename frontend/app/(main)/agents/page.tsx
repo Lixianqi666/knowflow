@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 export default function AgentsPage() {
   const router = useRouter();
   const { token, agents, setAgents } = useStore();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!agents.length);
 
   useEffect(() => {
     if (!token) return;
@@ -16,6 +16,7 @@ export default function AgentsPage() {
   }, [token]);
 
   const loadAgents = async () => {
+    if (useStore.getState().agents.length) return;
     setLoading(true);
     try {
       const items = await api.get<any[]>('/agents');

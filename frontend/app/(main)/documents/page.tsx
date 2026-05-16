@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
-import UploadDialog from '@/components/UploadDialog';
 import DocList from '@/components/DocList';
-import { Search, Plus, RefreshCw } from 'lucide-react';
+import { Search, RefreshCw } from 'lucide-react';
 
 interface KB {
   id: string;
@@ -14,11 +13,8 @@ interface KB {
 }
 
 export default function DocumentsPage() {
-  const { token, _hydrated } = useStore();
-  const [showUpload, setShowUpload] = useState(false);
+  const { token, _hydrated, kbs, setKbs } = useStore();
   const [refreshKey, setRefreshKey] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const [kbs, setKbs] = useState<KB[]>([]);
   const [currentKbId, setCurrentKbId] = useState<string>('');
   const [showCreateKb, setShowCreateKb] = useState(false);
   const [newKbName, setNewKbName] = useState('');
@@ -26,33 +22,16 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     if (!token) return;
-    api
-      .get<KB[]>('/knowledge-bases')
-      .then((items) => setKbs(Array.isArray(items) ? items : []))
-      .catch(() => {});
+    if (!kbs.length) {
+      api
+        .get<KB[]>('/knowledge-bases')
+        .then((items) => setKbs(Array.isArray(items) ? items : []))
+        .catch(() => {});
+    }
   }, [token]);
   useEffect(() => {
     if (kbs.length > 0 && !currentKbId) setCurrentKbId(kbs[0].id);
   }, [kbs]);
-
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragging(false);
-      const files = Array.from(e.dataTransfer.files).filter((f) => {
-        const ext = f.name.split('.').pop()?.toLowerCase();
-        return ['txt', 'md', 'markdown', 'pdf', 'docx', 'xlsx'].includes(ext || '');
-      });
-      if (files.length === 0) return;
-      for (const file of files) {
-        try {
-          await api.upload(file, currentKbId);
-        } catch {}
-      }
-      setRefreshKey((k) => k + 1);
-    },
-    [currentKbId],
-  );
 
   const createKb = async () => {
     if (!newKbName.trim()) return;
@@ -69,20 +48,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--c-bg)' }}>
-      <div
-        className="flex-1 flex flex-col overflow-hidden"
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('Files')) {
-            e.preventDefault();
-            setDragging(true);
-          }
-        }}
-        onDragLeave={(e) => {
-          if (e.dataTransfer.types.includes('Files') && e.currentTarget === e.target) {
-            setDragging(false);
-          }
-        }}
-      >
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header
           className="shrink-0 px-6 md:px-8 py-4 flex items-center justify-between gap-3 flex-wrap z-10"
@@ -115,13 +81,6 @@ export default function DocumentsPage() {
                 }}
               />
             </div>
-            <button
-              onClick={() => setShowUpload(true)}
-              className="btn-primary flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium border-none cursor-pointer whitespace-nowrap transition-all"
-              style={{ background: 'var(--c-primary)', color: '#fff' }}
-            >
-              <Plus className="w-4 h-4" /> 上传
-            </button>
           </div>
         </header>
 
@@ -165,7 +124,7 @@ export default function DocumentsPage() {
                   className="ml-1 px-3 py-1.5 text-xs font-medium rounded-lg border-none cursor-pointer transition-all"
                   style={{ background: 'var(--c-primary)', color: '#fff' }}
                 >
-                  + 新建知识库
+                  新建知识库
                 </button>
                 <button
                   onClick={() => setRefreshKey((k) => k + 1)}
@@ -224,61 +183,6 @@ export default function DocumentsPage() {
         </div>
       </div>
 
-      {/* 全页拖拽上传遮罩 */}
-      {dragging && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{
-            background: 'rgba(37,99,235,.08)',
-            backdropFilter: 'blur(4px)',
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onDragLeave={(e) => {
-            e.preventDefault();
-            if (e.currentTarget === e.target) setDragging(false);
-          }}
-          onDrop={handleDrop}
-        >
-          <div
-            className="rounded-2xl p-12 text-center transition-all"
-            style={{
-              background: 'rgba(255,255,255,.95)',
-              border: '2px dashed var(--c-primary)',
-              boxShadow: '0 20px 60px rgba(37,99,235,.15)',
-            }}
-          >
-            <svg
-              className="w-12 h-12 mx-auto mb-4"
-              fill="none"
-              stroke="var(--c-primary)"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
-            <p className="text-base font-medium" style={{ color: 'var(--c-primary)' }}>
-              松开以上传文件
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'var(--c-text-tertiary)' }}>
-              支持 txt / md / pdf / docx / xlsx
-            </p>
-          </div>
-        </div>
-      )}
-
-      <UploadDialog
-        open={showUpload}
-        kbId={currentKbId}
-        onClose={() => setShowUpload(false)}
-        onUploaded={() => setRefreshKey((k) => k + 1)}
-      />
     </div>
   );
 }

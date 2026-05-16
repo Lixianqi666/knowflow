@@ -85,6 +85,16 @@ interface Store {
   updateLastAgentMessage: (content: string) => void;
   agentStreaming: boolean;
   setAgentStreaming: (v: boolean) => void;
+
+  // 管理后台
+  adminUsers: any[];
+  setAdminUsers: (users: any[]) => void;
+  adminStats: any | null;
+  setAdminStats: (stats: any) => void;
+
+  // 知识库
+  kbs: { id: string; name: string; description: string }[];
+  setKbs: (kbs: { id: string; name: string; description: string }[] | ((prev: { id: string; name: string; description: string }[]) => { id: string; name: string; description: string }[])) => void;
 }
 
 function asArray<T>(value: unknown): T[] {
@@ -122,6 +132,9 @@ export const useStore = create<Store>((set, get) => ({
       messages: [],
       messagesCache: {},
       chatError: null,
+      adminUsers: [],
+      adminStats: null,
+      kbs: [],
     });
   },
 
@@ -192,4 +205,15 @@ export const useStore = create<Store>((set, get) => ({
     }),
   agentStreaming: false,
   setAgentStreaming: (agentStreaming) => set({ agentStreaming }),
+
+  adminUsers: [],
+  setAdminUsers: (adminUsers) => set({ adminUsers: Array.isArray(adminUsers) ? adminUsers : [] }),
+  adminStats: null,
+  setAdminStats: (adminStats) => set({ adminStats }),
+
+  kbs: [],
+  setKbs: (kbs) =>
+    set((s) => ({
+      kbs: typeof kbs === 'function' ? (kbs as any)(s.kbs) : Array.isArray(kbs) ? kbs : [],
+    })),
 }));

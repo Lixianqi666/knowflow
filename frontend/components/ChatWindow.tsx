@@ -47,22 +47,6 @@ export default function ChatWindow() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const [templates, setTemplates] = useState<{ id: string; name: string; description: string }[]>(
-    [],
-  );
-  const [activeTemplate, setActiveTemplate] = useState('');
-
-  useEffect(() => {
-    api
-      .get<any[]>('/prompt-templates/')
-      .then((ts) => {
-        const items = Array.isArray(ts) ? ts : [];
-        setTemplates(items);
-        if (items.length > 0) setActiveTemplate(items[0].id);
-      })
-      .catch(() => {});
-  }, []);
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, waitingFirstToken]);
@@ -123,7 +107,6 @@ export default function ChatWindow() {
         convId!,
         content,
         controller.signal,
-        activeTemplate || undefined,
       );
       const reader = stream.getReader();
       const decoder = new TextDecoder();
@@ -275,30 +258,6 @@ export default function ChatWindow() {
           <div ref={bottomRef} />
         </div>
       </div>
-
-      {templates.length > 1 && (
-        <div className="flex items-center justify-center gap-2 px-4 pb-1">
-          <span className="text-xs" style={{ color: 'var(--c-text-tertiary)' }}>
-            场景：
-          </span>
-          <select
-            value={activeTemplate}
-            onChange={(e) => setActiveTemplate(e.target.value)}
-            className="text-xs rounded-lg px-2 py-1.5 border input-base cursor-pointer"
-            style={{
-              borderColor: 'var(--c-border)',
-              color: 'var(--c-text-secondary)',
-              background: 'var(--c-surface)',
-            }}
-          >
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {chatError && (
         <div
