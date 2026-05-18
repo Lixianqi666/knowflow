@@ -97,8 +97,8 @@ export default function ChatWindow() {
     setStreaming(true);
     setWaitingFirstToken(true);
 
+    let convId = currentConvId;
     try {
-      let convId = currentConvId;
       if (!convId) {
         const conv = await api.post<any>('/chat/conversations', { title: content.slice(0, 30) });
         convId = conv.id;
