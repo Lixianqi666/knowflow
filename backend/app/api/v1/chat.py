@@ -183,7 +183,11 @@ async def send_message(
                 )
                 yield f"data: {error_event}\n\n"
 
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={"X-Accel-Buffering": "no"},
+        )
 
 
 @router.patch("/messages/{msg_id}/rating")
