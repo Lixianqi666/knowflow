@@ -57,6 +57,7 @@ export default function ChatWindow() {
       setMessages([]);
       return;
     }
+    if (streaming) return;
 
     // 有缓存时直接使用，不显示加载状态
     const cached = messagesCache[currentConvId];
@@ -74,7 +75,19 @@ export default function ChatWindow() {
       return;
     }
 
-    // 无缓存时显示加载状态
+    // 无缓存时：已有消息（流式刚结束）则静默刷新，否则显示加载状态
+    if (messages.length > 0) {
+      api
+        .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
+        .then((msgs) => {
+          const mapped = mapApiMessages(msgs);
+          setMessages(mapped);
+          setCachedMessages(currentConvId, mapped);
+        })
+        .catch(() => {});
+      return;
+    }
+
     setLoadingMessages(true);
     api
       .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
@@ -85,7 +98,7 @@ export default function ChatWindow() {
       })
       .catch((e) => setChatError(`加载失败: ${e.message}`))
       .finally(() => setLoadingMessages(false));
-  }, [currentConvId]);
+  }, [currentConvId, streaming]);
 
   const handleSend = async (content: string) => {
     const controller = new AbortController();
@@ -133,14 +146,14 @@ export default function ChatWindow() {
     } catch (err: any) {
       if (err.name !== 'AbortError') setChatError(err.message);
     } finally {
-      setStreaming(false);
-      setWaitingFirstToken(false);
-      abortRef.current = null;
-      // 更新缓存，避免后续切换对话时使用过期数据
+      // 先更新缓存再结束流式，确保 useEffect 读到最新缓存
       if (convId) {
         const current = useStore.getState().messages;
         setCachedMessages(convId, current);
       }
+      setStreaming(false);
+      setWaitingFirstToken(false);
+      abortRef.current = null;
       api
         .get<any[]>('/chat/conversations')
         .then(setConversations)
