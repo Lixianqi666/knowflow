@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
 import { toast } from '@/components/Toast';
+import FormModal from '@/components/FormModal';
 
 interface User {
   id: string;
@@ -672,107 +673,12 @@ export default function AdminPage() {
               )}
             </div>
             {templateForm && (
-              <div
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-                onClick={() => setTemplateForm(null)}
-              >
-                <div
-                  className="bg-white rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col mx-4"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between p-4 border-b shrink-0">
-                    <h3 className="font-semibold">{templateForm.name ? '编辑场景' : '新建场景'}</h3>
-                    <button
-                      onClick={() => setTemplateForm(null)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="p-4 overflow-y-auto flex-1 space-y-3">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">名称</label>
-                      <input
-                        value={templateForm.name}
-                        onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
-                        className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                        placeholder="如：HR场景、技术问答"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">描述</label>
-                      <input
-                        value={templateForm.description}
-                        onChange={(e) =>
-                          setTemplateForm({ ...templateForm, description: e.target.value })
-                        }
-                        className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                        placeholder="简短描述该场景的用途"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">
-                        有上下文时的系统提示
-                      </label>
-                      <textarea
-                        value={templateForm.context_prompt}
-                        onChange={(e) =>
-                          setTemplateForm({ ...templateForm, context_prompt: e.target.value })
-                        }
-                        className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
-                        placeholder="检索到相关文档时使用的 prompt，告知 AI 如何回答"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">
-                        无上下文时的系统提示
-                      </label>
-                      <textarea
-                        value={templateForm.no_context_prompt}
-                        onChange={(e) =>
-                          setTemplateForm({ ...templateForm, no_context_prompt: e.target.value })
-                        }
-                        className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
-                        placeholder="未检索到相关文档时使用的 prompt"
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">检索数量 (top_k)</label>
-                        <input
-                          type="number"
-                          value={templateForm.top_k}
-                          onChange={(e) =>
-                            setTemplateForm({ ...templateForm, top_k: +e.target.value })
-                          }
-                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">相似度阈值 (%)</label>
-                        <input
-                          type="number"
-                          value={templateForm.threshold}
-                          onChange={(e) =>
-                            setTemplateForm({ ...templateForm, threshold: +e.target.value })
-                          }
-                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">重排数量</label>
-                        <input
-                          type="number"
-                          value={templateForm.rerank_top_k}
-                          onChange={(e) =>
-                            setTemplateForm({ ...templateForm, rerank_top_k: +e.target.value })
-                          }
-                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-4 border-t flex justify-end gap-2">
+              <FormModal
+                open={!!templateForm}
+                title={templateForm.name ? '编辑场景' : '新建场景'}
+                onClose={() => setTemplateForm(null)}
+                footer={
+                  <>
                     <button
                       onClick={() => setTemplateForm(null)}
                       className="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50"
@@ -806,9 +712,85 @@ export default function AdminPage() {
                     >
                       {savingTemplate ? '保存中...' : '保存'}
                     </button>
+                  </>
+                }
+              >
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">名称</label>
+                  <input
+                    value={templateForm.name}
+                    onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                    className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                    placeholder="如：HR场景、技术问答"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">描述</label>
+                  <input
+                    value={templateForm.description}
+                    onChange={(e) =>
+                      setTemplateForm({ ...templateForm, description: e.target.value })
+                    }
+                    className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                    placeholder="简短描述该场景的用途"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">有上下文时的系统提示</label>
+                  <textarea
+                    value={templateForm.context_prompt}
+                    onChange={(e) =>
+                      setTemplateForm({ ...templateForm, context_prompt: e.target.value })
+                    }
+                    className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
+                    placeholder="检索到相关文档时使用的 prompt，告知 AI 如何回答"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">无上下文时的系统提示</label>
+                  <textarea
+                    value={templateForm.no_context_prompt}
+                    onChange={(e) =>
+                      setTemplateForm({ ...templateForm, no_context_prompt: e.target.value })
+                    }
+                    className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
+                    placeholder="未检索到相关文档时使用的 prompt"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">检索数量 (top_k)</label>
+                    <input
+                      type="number"
+                      value={templateForm.top_k}
+                      onChange={(e) => setTemplateForm({ ...templateForm, top_k: +e.target.value })}
+                      className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">相似度阈值 (%)</label>
+                    <input
+                      type="number"
+                      value={templateForm.threshold}
+                      onChange={(e) =>
+                        setTemplateForm({ ...templateForm, threshold: +e.target.value })
+                      }
+                      className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">重排数量</label>
+                    <input
+                      type="number"
+                      value={templateForm.rerank_top_k}
+                      onChange={(e) =>
+                        setTemplateForm({ ...templateForm, rerank_top_k: +e.target.value })
+                      }
+                      className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                    />
                   </div>
                 </div>
-              </div>
+              </FormModal>
             )}
           </div>
         ) : tab === 'agents' ? (
@@ -902,117 +884,12 @@ export default function AdminPage() {
               )}
             </div>
             {agentForm && (
-              <div
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-                onClick={() => setAgentForm(null)}
-              >
-                <div
-                  className="bg-white rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col mx-4"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between p-4 border-b shrink-0">
-                    <h3 className="font-semibold">{agentForm.id ? '编辑 Agent' : '新建 Agent'}</h3>
-                    <button
-                      onClick={() => setAgentForm(null)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="p-4 overflow-y-auto flex-1 space-y-3">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">名称</label>
-                      <input
-                        value={agentForm.name}
-                        onChange={(e) => setAgentForm({ ...agentForm, name: e.target.value })}
-                        className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">描述</label>
-                      <input
-                        value={agentForm.description}
-                        onChange={(e) =>
-                          setAgentForm({ ...agentForm, description: e.target.value })
-                        }
-                        className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">系统提示词</label>
-                      <textarea
-                        value={agentForm.system_prompt}
-                        onChange={(e) =>
-                          setAgentForm({ ...agentForm, system_prompt: e.target.value })
-                        }
-                        className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
-                        placeholder="Agent 的系统提示词，定义 AI 的行为和回答风格"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">关联知识库</label>
-                      <div className="flex flex-wrap gap-2">
-                        {kbOptions.map((kb) => {
-                          const selected = agentForm.knowledge_base_ids.includes(kb.id);
-                          return (
-                            <button
-                              key={kb.id}
-                              onClick={() => {
-                                const ids = selected
-                                  ? agentForm.knowledge_base_ids.filter((id) => id !== kb.id)
-                                  : [...agentForm.knowledge_base_ids, kb.id];
-                                setAgentForm({ ...agentForm, knowledge_base_ids: ids });
-                              }}
-                              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                                selected
-                                  ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                              }`}
-                            >
-                              {kb.name}
-                            </button>
-                          );
-                        })}
-                        {kbOptions.length === 0 && (
-                          <span className="text-xs text-gray-400">暂无知识库</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">检索数量 (top_k)</label>
-                        <input
-                          type="number"
-                          value={agentForm.top_k}
-                          onChange={(e) => setAgentForm({ ...agentForm, top_k: +e.target.value })}
-                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">相似度阈值 (%)</label>
-                        <input
-                          type="number"
-                          value={agentForm.threshold}
-                          onChange={(e) =>
-                            setAgentForm({ ...agentForm, threshold: +e.target.value })
-                          }
-                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">重排数量</label>
-                        <input
-                          type="number"
-                          value={agentForm.rerank_top_k}
-                          onChange={(e) =>
-                            setAgentForm({ ...agentForm, rerank_top_k: +e.target.value })
-                          }
-                          className="w-full text-sm border rounded-lg px-3 py-2 input-base"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-4 border-t flex justify-end gap-2">
+              <FormModal
+                open={!!agentForm}
+                title={agentForm.id ? '编辑 Agent' : '新建 Agent'}
+                onClose={() => setAgentForm(null)}
+                footer={
+                  <>
                     <button
                       onClick={() => setAgentForm(null)}
                       className="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50"
@@ -1046,9 +923,95 @@ export default function AdminPage() {
                     >
                       {savingAgent ? '保存中...' : '保存'}
                     </button>
+                  </>
+                }
+              >
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">名称</label>
+                  <input
+                    value={agentForm.name}
+                    onChange={(e) => setAgentForm({ ...agentForm, name: e.target.value })}
+                    className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">描述</label>
+                  <input
+                    value={agentForm.description}
+                    onChange={(e) => setAgentForm({ ...agentForm, description: e.target.value })}
+                    className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">系统提示词</label>
+                  <textarea
+                    value={agentForm.system_prompt}
+                    onChange={(e) => setAgentForm({ ...agentForm, system_prompt: e.target.value })}
+                    className="w-full text-sm border rounded-lg px-3 py-2 h-24 input-base font-mono"
+                    placeholder="Agent 的系统提示词，定义 AI 的行为和回答风格"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">关联知识库</label>
+                  <div className="flex flex-wrap gap-2">
+                    {kbOptions.map((kb) => {
+                      const selected = agentForm.knowledge_base_ids.includes(kb.id);
+                      return (
+                        <button
+                          key={kb.id}
+                          onClick={() => {
+                            const ids = selected
+                              ? agentForm.knowledge_base_ids.filter((id) => id !== kb.id)
+                              : [...agentForm.knowledge_base_ids, kb.id];
+                            setAgentForm({ ...agentForm, knowledge_base_ids: ids });
+                          }}
+                          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                            selected
+                              ? 'bg-blue-100 border-blue-300 text-blue-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {kb.name}
+                        </button>
+                      );
+                    })}
+                    {kbOptions.length === 0 && (
+                      <span className="text-xs text-gray-400">暂无知识库</span>
+                    )}
                   </div>
                 </div>
-              </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">检索数量 (top_k)</label>
+                    <input
+                      type="number"
+                      value={agentForm.top_k}
+                      onChange={(e) => setAgentForm({ ...agentForm, top_k: +e.target.value })}
+                      className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">相似度阈值 (%)</label>
+                    <input
+                      type="number"
+                      value={agentForm.threshold}
+                      onChange={(e) => setAgentForm({ ...agentForm, threshold: +e.target.value })}
+                      className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">重排数量</label>
+                    <input
+                      type="number"
+                      value={agentForm.rerank_top_k}
+                      onChange={(e) =>
+                        setAgentForm({ ...agentForm, rerank_top_k: +e.target.value })
+                      }
+                      className="w-full text-sm border rounded-lg px-3 py-2 input-base"
+                    />
+                  </div>
+                </div>
+              </FormModal>
             )}
           </div>
         ) : tab === 'audit' ? (

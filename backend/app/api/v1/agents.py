@@ -20,6 +20,9 @@ from app.models.user import User
 
 router = APIRouter(prefix="/agents", tags=["Agent 应用"])
 
+# 模块级单例，避免每次请求重建 LangGraph 图
+_agent_runtime = AgentRuntime(tool_registry=build_business_tool_registry(), max_steps=8)
+
 
 # ---------- Schemas ----------
 
@@ -332,60 +335,33 @@ async def send_message(
 
         async def event_stream():
             try:
-                registry = build_business_tool_registry()
-                runtime = AgentRuntime(tool_registry=registry, max_steps=8)
                 ctx = ToolContext(
                     user_id=str(user.id),
                     session_id=str(session_id),
                     is_admin=user.role == "admin",
                     db=db,
                 )
-                state = await runtime.run(data.content, ctx)
+                state = await _agent_runtime.run(data.content, ctx)
 
                 for step in state.steps:
                     yield f"data: {json.dumps(step_to_event(step), ensure_ascii=False)}\n\n"
 
-                if state.clarify_question:
+                if state.clarify_question or state.final_answer:
+                    answer = state.clarify_question or state.final_answer
                     db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
                     db.add(
                         AgentMessage(
                             session_id=session_id,
                             role="assistant",
-                            content=state.clarify_question,
+                            content=answer,
                             sources=[],
                         )
                     )
-                    payload = json.dumps(
-                        {"type": "token", "data": state.clarify_question},
-                        ensure_ascii=False,
-                    )
-                    yield f"data: {payload}\n\n"
-                elif state.final_answer:
-                    db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
-                    db.add(
-                        AgentMessage(
-                            session_id=session_id,
-                            role="assistant",
-                            content=state.final_answer,
-                            sources=[],
-                        )
-                    )
-                    payload = json.dumps(
-                        {"type": "token", "data": state.final_answer},
-                        ensure_ascii=False,
-                    )
-                    yield f"data: {payload}\n\n"
-                elif state.failure_reason:
-                    payload = json.dumps(
-                        {"type": "error", "data": state.failure_reason},
-                        ensure_ascii=False,
-                    )
+                    payload = json.dumps({"type": "token", "data": answer}, ensure_ascii=False)
                     yield f"data: {payload}\n\n"
                 else:
-                    payload = json.dumps(
-                        {"type": "error", "data": "Agent 未产生有效结果"},
-                        ensure_ascii=False,
-                    )
+                    error_msg = state.failure_reason or "Agent 未产生有效结果"
+                    payload = json.dumps({"type": "error", "data": error_msg}, ensure_ascii=False)
                     yield f"data: {payload}\n\n"
 
                 await db.commit()

@@ -178,6 +178,35 @@ async def list_documents(
     }
 
 
+@router.get("/stats")
+async def document_stats(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    kb_id: str | None = None,
+):
+    base = select(Document.status)
+    if kb_id:
+        base = base.where(Document.kb_id == kb_id)
+    if user.role != "admin":
+        base = base.where(
+            Document.id.in_(
+                select(DocumentPermission.document_id).where(DocumentPermission.user_id == user.id)
+            )
+            | Document.source_id.in_(
+                select(SourcePermission.source_id).where(SourcePermission.user_id == user.id)
+            )
+        )
+    rows = (await db.execute(base)).scalars().all()
+    indexed = sum(1 for s in rows if s == "indexed")
+    processing = sum(1 for s in rows if s == "processing")
+    return {
+        "all": len(rows),
+        "indexed": indexed,
+        "processing": processing,
+        "others": len(rows) - indexed - processing,
+    }
+
+
 @router.get("/{doc_id}")
 async def get_document(
     doc_id: str,

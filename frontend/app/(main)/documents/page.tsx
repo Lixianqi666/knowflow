@@ -191,16 +191,8 @@ function DocStats({ refreshKey, kbId }: { refreshKey: number; kbId?: string }) {
   const [stats, setStats] = useState({ all: 0, indexed: 0, processing: 0, others: 0 });
   useEffect(() => {
     api
-      .get<any>(`/documents${kbId ? `?kb_id=${kbId}` : ''}`)
-      .then((res) => {
-        const items = Array.isArray(res?.items) ? res.items : [];
-        setStats({
-          all: items.length,
-          indexed: items.filter((d: any) => d.status === 'indexed').length,
-          processing: items.filter((d: any) => d.status === 'processing').length,
-          others: items.filter((d: any) => !['indexed', 'processing'].includes(d.status)).length,
-        });
-      })
+      .get<any>(`/documents/stats${kbId ? `?kb_id=${kbId}` : ''}`)
+      .then(setStats)
       .catch(() => {});
   }, [refreshKey, kbId]);
 
