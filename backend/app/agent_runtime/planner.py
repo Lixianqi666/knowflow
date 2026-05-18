@@ -51,7 +51,10 @@ class RuleBasedPlanner:
                 )
 
             # 校验票据（在提交前）
-            if not self._used_tool(state, "validate_invoice") and "validate_invoice" in available_tools:
+            if (
+                not self._used_tool(state, "validate_invoice")
+                and "validate_invoice" in available_tools
+            ):
                 receipt_ids = self._extract_receipt_ids(state)
                 if receipt_ids:
                     return AgentAction(
@@ -69,7 +72,10 @@ class RuleBasedPlanner:
                     reason="票据校验失败，需要用户确认。",
                 )
 
-            if not self._used_tool(state, "submit_reimbursement") and "submit_reimbursement" in available_tools:
+            if (
+                not self._used_tool(state, "submit_reimbursement")
+                and "submit_reimbursement" in available_tools
+            ):
                 return AgentAction(
                     action_type="tool",
                     tool_name="submit_reimbursement",

@@ -4,7 +4,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
-
 ActionType = Literal["tool", "finish", "clarify", "fail"]
 ObservationStatus = Literal["ok", "error", "retryable", "not_found"]
 StepPhase = Literal["perceive", "plan", "act", "observe", "reflect", "finish"]

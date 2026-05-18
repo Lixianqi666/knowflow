@@ -20,7 +20,9 @@ def test_agent_state_defaults():
 
 
 def test_agent_action_requires_tool_when_type_is_tool():
-    action = AgentAction(action_type="tool", tool_name="search_policy", arguments={"query": "差旅报销"})
+    action = AgentAction(
+        action_type="tool", tool_name="search_policy", arguments={"query": "差旅报销"}
+    )
     assert action.tool_name == "search_policy"
     assert action.arguments["query"] == "差旅报销"
 
@@ -51,7 +53,9 @@ def test_short_term_memory_limits_recent_messages():
 def test_step_to_event_serializes_trace():
     action = AgentAction(action_type="tool", tool_name="search_policy", arguments={"query": "报销"})
     observation = AgentObservation(status="ok", content="找到政策")
-    step = AgentStep(index=1, phase="act", thought="需要查政策", action=action, observation=observation)
+    step = AgentStep(
+        index=1, phase="act", thought="需要查政策", action=action, observation=observation
+    )
 
     event = step_to_event(step)
 

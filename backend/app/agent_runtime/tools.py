@@ -56,7 +56,11 @@ class ToolRegistry:
 
     def list_tools(self) -> list[dict[str, Any]]:
         return [
-            {"name": spec.name, "description": spec.description, "required_args": spec.required_args}
+            {
+                "name": spec.name,
+                "description": spec.description,
+                "required_args": spec.required_args,
+            }
             for spec in self._tools.values()
         ]
 

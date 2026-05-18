@@ -6,7 +6,9 @@ from app.models.reimbursement import EmployeeProfile, ReimbursementRequest, Trav
 
 async def search_policy(ctx: ToolContext, query: str) -> ToolResult:
     """查询政策知识库。"""
-    return ToolResult(status="ok", content="差旅报销需提供有效交通和住宿票据，金额需符合员工级别标准。")
+    return ToolResult(
+        status="ok", content="差旅报销需提供有效交通和住宿票据，金额需符合员工级别标准。"
+    )
 
 
 async def get_employee(ctx: ToolContext, name: str) -> ToolResult:
@@ -15,7 +17,9 @@ async def get_employee(ctx: ToolContext, name: str) -> ToolResult:
     result = await ctx.db.execute(select(EmployeeProfile).where(EmployeeProfile.name == name))
     employee = result.scalar_one_or_none()
     if not employee:
-        return ToolResult(status="not_found", content=f"未找到员工 {name}", error="employee_not_found")
+        return ToolResult(
+            status="not_found", content=f"未找到员工 {name}", error="employee_not_found"
+        )
     return ToolResult(
         status="ok",
         content=f"员工{name}属于{employee.department}，级别{employee.level}，审批人为{employee.manager_name}",
@@ -32,10 +36,14 @@ async def get_employee(ctx: ToolContext, name: str) -> ToolResult:
 async def list_receipts(ctx: ToolContext, employee_name: str) -> ToolResult:
     if not ctx.db:
         return ToolResult(status="error", content="数据库不可用", error="missing_db")
-    result = await ctx.db.execute(select(TravelReceipt).where(TravelReceipt.employee_name == employee_name))
+    result = await ctx.db.execute(
+        select(TravelReceipt).where(TravelReceipt.employee_name == employee_name)
+    )
     receipts = list(result.scalars().all())
     if not receipts:
-        return ToolResult(status="not_found", content=f"未找到 {employee_name} 的票据", error="receipt_not_found")
+        return ToolResult(
+            status="not_found", content=f"未找到 {employee_name} 的票据", error="receipt_not_found"
+        )
     data = [
         {
             "id": str(r.id),
@@ -50,7 +58,9 @@ async def list_receipts(ctx: ToolContext, employee_name: str) -> ToolResult:
     has_transport = any(t in transport_types for t in {r.receipt_type for r in receipts})
     has_hotel = "住宿" in {r.receipt_type for r in receipts}
     if not has_transport or not has_hotel:
-        return ToolResult(status="ok", content="票据不完整，缺少交通或住宿票据", data={"receipts": data})
+        return ToolResult(
+            status="ok", content="票据不完整，缺少交通或住宿票据", data={"receipts": data}
+        )
     return ToolResult(status="ok", content=f"找到 {len(receipts)} 张票据", data={"receipts": data})
 
 
@@ -87,16 +97,22 @@ async def validate_invoice(ctx: ToolContext, receipt_ids: list[str]) -> ToolResu
     )
 
 
-async def submit_reimbursement(ctx: ToolContext, employee_name: str, trip_city: str | None = None) -> ToolResult:
+async def submit_reimbursement(
+    ctx: ToolContext, employee_name: str, trip_city: str | None = None
+) -> ToolResult:
     if not ctx.db:
         return ToolResult(status="error", content="数据库不可用", error="missing_db")
-    result = await ctx.db.execute(select(TravelReceipt).where(TravelReceipt.employee_name == employee_name))
+    result = await ctx.db.execute(
+        select(TravelReceipt).where(TravelReceipt.employee_name == employee_name)
+    )
     receipts = list(result.scalars().all())
     transport_types = {"交通", "高铁", "火车", "飞机", "汽车"}
     has_transport = any(t in transport_types for t in {r.receipt_type for r in receipts})
     has_hotel = "住宿" in {r.receipt_type for r in receipts}
     if not has_transport or not has_hotel:
-        return ToolResult(status="error", content="提交失败：缺少交通或住宿票据", error="missing_receipts")
+        return ToolResult(
+            status="error", content="提交失败：缺少交通或住宿票据", error="missing_receipts"
+        )
     amount = sum(r.amount for r in receipts)
     req = ReimbursementRequest(
         employee_name=employee_name,
@@ -121,5 +137,7 @@ def build_business_tool_registry() -> ToolRegistry:
     registry.register("get_employee", get_employee, "查询员工信息", ["name"])
     registry.register("list_receipts", list_receipts, "查询员工票据", ["employee_name"])
     registry.register("validate_invoice", validate_invoice, "校验票据", ["receipt_ids"])
-    registry.register("submit_reimbursement", submit_reimbursement, "提交报销申请", ["employee_name"])
+    registry.register(
+        "submit_reimbursement", submit_reimbursement, "提交报销申请", ["employee_name"]
+    )
     return registry

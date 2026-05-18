@@ -347,11 +347,25 @@ async def send_message(
 
                 if state.clarify_question:
                     db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
-                    db.add(AgentMessage(session_id=session_id, role="assistant", content=state.clarify_question, sources=[]))
+                    db.add(
+                        AgentMessage(
+                            session_id=session_id,
+                            role="assistant",
+                            content=state.clarify_question,
+                            sources=[],
+                        )
+                    )
                     yield f"data: {json.dumps({'type': 'token', 'data': state.clarify_question}, ensure_ascii=False)}\n\n"
                 elif state.final_answer:
                     db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
-                    db.add(AgentMessage(session_id=session_id, role="assistant", content=state.final_answer, sources=[]))
+                    db.add(
+                        AgentMessage(
+                            session_id=session_id,
+                            role="assistant",
+                            content=state.final_answer,
+                            sources=[],
+                        )
+                    )
                     yield f"data: {json.dumps({'type': 'token', 'data': state.final_answer}, ensure_ascii=False)}\n\n"
                 elif state.failure_reason:
                     yield f"data: {json.dumps({'type': 'error', 'data': state.failure_reason}, ensure_ascii=False)}\n\n"

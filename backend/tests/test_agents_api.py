@@ -5,11 +5,18 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_agent_message_stream_emits_trace(client: AsyncClient, admin_headers: dict, auth_headers: dict):
+async def test_agent_message_stream_emits_trace(
+    client: AsyncClient, admin_headers: dict, auth_headers: dict
+):
     agent_resp = await client.post(
         "/api/v1/agents/",
         headers=admin_headers,
-        json={"name": "报销助手", "description": "测试", "system_prompt": "", "knowledge_base_ids": []},
+        json={
+            "name": "报销助手",
+            "description": "测试",
+            "system_prompt": "",
+            "knowledge_base_ids": [],
+        },
     )
     assert agent_resp.status_code == 200
     agent_id = agent_resp.json()["id"]

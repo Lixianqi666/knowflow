@@ -11,8 +11,15 @@ class AgentRun(Base):
     __tablename__ = "agent_runs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("agent_sessions.id", ondelete="CASCADE"), nullable=True, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    session_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_sessions.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     goal = Column(Text, nullable=False)
     status = Column(String(30), nullable=False, default="running")
     final_answer = Column(Text, nullable=True)
@@ -29,7 +36,12 @@ class AgentStepTrace(Base):
     __table_args__ = (Index("idx_agent_step_run_step", "run_id", "step_index"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    run_id = Column(UUID(as_uuid=True), ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    run_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     step_index = Column(Integer, nullable=False)
     phase = Column(String(30), nullable=False)
     thought = Column(Text, default="")

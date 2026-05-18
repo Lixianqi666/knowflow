@@ -27,7 +27,11 @@ def perceive_node(state: GraphState) -> dict[str, Any]:
             session_id=ctx.session_id,
             user_id=ctx.user_id,
         )
-    return {"runtime_state": runtime_state, "finished": runtime_state.finished, "seen_actions": state.get("seen_actions", set())}
+    return {
+        "runtime_state": runtime_state,
+        "finished": runtime_state.finished,
+        "seen_actions": state.get("seen_actions", set()),
+    }
 
 
 def plan_node(state: GraphState) -> dict[str, Any]:
@@ -59,9 +63,19 @@ async def tool_executor_node(state: GraphState) -> dict[str, Any]:
         runtime_state.finished = True
         runtime_state.failure_reason = "检测到重复工具调用，已停止执行。"
         runtime_state.steps.append(
-            AgentStep(index=runtime_state.step_index, phase="finish", thought=runtime_state.failure_reason, action=action)
+            AgentStep(
+                index=runtime_state.step_index,
+                phase="finish",
+                thought=runtime_state.failure_reason,
+                action=action,
+            )
         )
-        return {"runtime_state": runtime_state, "route": "finish", "finished": True, "seen_actions": seen_actions}
+        return {
+            "runtime_state": runtime_state,
+            "route": "finish",
+            "finished": True,
+            "seen_actions": seen_actions,
+        }
     seen_actions.add(signature)
 
     started = time.time()
@@ -114,19 +128,34 @@ def finish_node(state: GraphState) -> dict[str, Any]:
         runtime_state.finished = True
         runtime_state.final_answer = action.final_answer
         runtime_state.steps.append(
-            AgentStep(index=runtime_state.step_index + 1, phase="finish", thought=action.reason, action=action)
+            AgentStep(
+                index=runtime_state.step_index + 1,
+                phase="finish",
+                thought=action.reason,
+                action=action,
+            )
         )
     elif action and action.action_type == "clarify":
         runtime_state.finished = True
         runtime_state.clarify_question = action.question
         runtime_state.steps.append(
-            AgentStep(index=runtime_state.step_index + 1, phase="finish", thought=action.reason, action=action)
+            AgentStep(
+                index=runtime_state.step_index + 1,
+                phase="finish",
+                thought=action.reason,
+                action=action,
+            )
         )
     elif action and action.action_type == "fail":
         runtime_state.finished = True
         runtime_state.failure_reason = action.reason
         runtime_state.steps.append(
-            AgentStep(index=runtime_state.step_index + 1, phase="finish", thought=action.reason, action=action)
+            AgentStep(
+                index=runtime_state.step_index + 1,
+                phase="finish",
+                thought=action.reason,
+                action=action,
+            )
         )
     else:
         runtime_state.finished = True

@@ -11,7 +11,9 @@ class AgentRuntime:
         self.max_steps = max_steps
         self.graph = build_agent_graph(tool_registry)
 
-    async def run(self, goal: str, ctx: ToolContext, history: list[dict] | None = None) -> AgentState:
+    async def run(
+        self, goal: str, ctx: ToolContext, history: list[dict] | None = None
+    ) -> AgentState:
         initial_state = AgentState(
             goal=goal,
             session_id=ctx.session_id,
