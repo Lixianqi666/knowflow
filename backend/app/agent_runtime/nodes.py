@@ -82,7 +82,6 @@ async def tool_executor_node(state: GraphState) -> dict[str, Any]:
     result = await registry.call(action.tool_name or "", action.arguments, ctx)
     latency_ms = int((time.time() - started) * 1000)
 
-    # 记录指标
     agent_steps_total.labels(phase="act").inc()
     agent_tool_calls_total.labels(tool=action.tool_name or "unknown", status=result.status).inc()
     agent_step_duration_seconds.labels(phase="act").observe(latency_ms / 1000)
@@ -124,31 +123,14 @@ def finish_node(state: GraphState) -> dict[str, Any]:
     runtime_state = state["runtime_state"]
     action = state.get("next_action")
 
-    if action and action.action_type == "finish":
+    if action and action.action_type in ("finish", "clarify", "fail"):
         runtime_state.finished = True
-        runtime_state.final_answer = action.final_answer
-        runtime_state.steps.append(
-            AgentStep(
-                index=runtime_state.step_index + 1,
-                phase="finish",
-                thought=action.reason,
-                action=action,
-            )
-        )
-    elif action and action.action_type == "clarify":
-        runtime_state.finished = True
-        runtime_state.clarify_question = action.question
-        runtime_state.steps.append(
-            AgentStep(
-                index=runtime_state.step_index + 1,
-                phase="finish",
-                thought=action.reason,
-                action=action,
-            )
-        )
-    elif action and action.action_type == "fail":
-        runtime_state.finished = True
-        runtime_state.failure_reason = action.reason
+        if action.action_type == "finish":
+            runtime_state.final_answer = action.final_answer
+        elif action.action_type == "clarify":
+            runtime_state.clarify_question = action.question
+        else:
+            runtime_state.failure_reason = action.reason
         runtime_state.steps.append(
             AgentStep(
                 index=runtime_state.step_index + 1,

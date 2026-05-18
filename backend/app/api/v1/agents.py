@@ -147,7 +147,7 @@ async def delete_agent(
     agent = await db.get(Agent, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent 不存在")
-    agent.is_active = False  # 软删除
+    agent.is_active = False
     await db.flush()
     return {"detail": "已停用"}
 

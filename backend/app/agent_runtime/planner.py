@@ -120,9 +120,6 @@ class RuleBasedPlanner:
         return None
 
     def _extract_city(self, text: str) -> str | None:
-        match = re.search(r"([一-鿿]{2,4})(?:出差|差旅)", text)
-        if match:
-            return match.group(1)
         match = re.search(r"(?:上周|本周|下周)?([一-鿿]{2,4})(?:出差|差旅)", text)
         return match.group(1) if match else None
 

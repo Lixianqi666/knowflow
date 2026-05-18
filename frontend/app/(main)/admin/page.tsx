@@ -90,6 +90,15 @@ const ACTION_LABELS: Record<string, string> = {
   delete_doc: '删除文档',
 };
 
+const TAB_LABELS: Record<string, string> = {
+  users: '用户',
+  permissions: '权限',
+  templates: '场景',
+  agents: 'Agent',
+  audit: '审计',
+  stats: '统计',
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const { token, user, adminUsers, setAdminUsers, adminStats, setAdminStats } = useStore();
@@ -330,17 +339,7 @@ export default function AdminPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t === 'users'
-                ? '用户'
-                : t === 'permissions'
-                  ? '权限'
-                  : t === 'templates'
-                    ? '场景'
-                    : t === 'agents'
-                      ? 'Agent'
-                      : t === 'audit'
-                        ? '审计'
-                        : '统计'}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </div>

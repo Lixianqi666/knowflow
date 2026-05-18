@@ -3,6 +3,15 @@ from sqlalchemy import select
 from app.agent_runtime.tools import ToolContext, ToolRegistry, ToolResult
 from app.models.reimbursement import EmployeeProfile, ReimbursementRequest, TravelReceipt
 
+VALID_TRANSPORT_TYPES = {"交通", "高铁", "火车", "飞机", "汽车"}
+
+
+def _check_receipt_completeness(receipts) -> tuple[bool, bool]:
+    types = {r.receipt_type for r in receipts}
+    has_transport = any(t in VALID_TRANSPORT_TYPES for t in types)
+    has_hotel = "住宿" in types
+    return has_transport, has_hotel
+
 
 async def search_policy(ctx: ToolContext, query: str) -> ToolResult:
     """查询政策知识库。"""
@@ -54,9 +63,7 @@ async def list_receipts(ctx: ToolContext, employee_name: str) -> ToolResult:
         }
         for r in receipts
     ]
-    transport_types = {"交通", "高铁", "火车", "飞机", "汽车"}
-    has_transport = any(t in transport_types for t in {r.receipt_type for r in receipts})
-    has_hotel = "住宿" in {r.receipt_type for r in receipts}
+    has_transport, has_hotel = _check_receipt_completeness(receipts)
     if not has_transport or not has_hotel:
         return ToolResult(
             status="ok", content="票据不完整，缺少交通或住宿票据", data={"receipts": data}
@@ -106,9 +113,7 @@ async def submit_reimbursement(
         select(TravelReceipt).where(TravelReceipt.employee_name == employee_name)
     )
     receipts = list(result.scalars().all())
-    transport_types = {"交通", "高铁", "火车", "飞机", "汽车"}
-    has_transport = any(t in transport_types for t in {r.receipt_type for r in receipts})
-    has_hotel = "住宿" in {r.receipt_type for r in receipts}
+    has_transport, has_hotel = _check_receipt_completeness(receipts)
     if not has_transport or not has_hotel:
         return ToolResult(
             status="error", content="提交失败：缺少交通或住宿票据", error="missing_receipts"
