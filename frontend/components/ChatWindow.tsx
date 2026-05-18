@@ -103,11 +103,7 @@ export default function ChatWindow() {
         router.replace(`/chat/${convId}`);
         setConversations(await api.get<any[]>('/chat/conversations'));
       }
-      const stream = await api.streamChat(
-        convId!,
-        content,
-        controller.signal,
-      );
+      const stream = await api.streamChat(convId!, content, controller.signal);
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buffer = '';

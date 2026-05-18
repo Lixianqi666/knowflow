@@ -94,7 +94,13 @@ interface Store {
 
   // 知识库
   kbs: { id: string; name: string; description: string }[];
-  setKbs: (kbs: { id: string; name: string; description: string }[] | ((prev: { id: string; name: string; description: string }[]) => { id: string; name: string; description: string }[])) => void;
+  setKbs: (
+    kbs:
+      | { id: string; name: string; description: string }[]
+      | ((
+          prev: { id: string; name: string; description: string }[],
+        ) => { id: string; name: string; description: string }[]),
+  ) => void;
 }
 
 function asArray<T>(value: unknown): T[] {

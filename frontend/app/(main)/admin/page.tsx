@@ -319,31 +319,29 @@ export default function AdminPage() {
         <h1 className="text-xl md:text-2xl font-bold mb-6">管理后台</h1>
 
         <div className="flex gap-1 mb-6 border-b overflow-x-auto">
-          {(['users', 'permissions', 'templates', 'agents', 'audit', 'stats'] as const).map(
-            (t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  tab === t
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {t === 'users'
-                  ? '用户管理'
-                  : t === 'permissions'
-                    ? '权限管理'
-                    : t === 'templates'
-                      ? '场景管理'
-                      : t === 'agents'
-                        ? 'Agent 应用'
-                        : t === 'audit'
-                          ? '审计日志'
-                          : '数据统计'}
-              </button>
-            ),
-          )}
+          {(['users', 'permissions', 'templates', 'agents', 'audit', 'stats'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tab === t
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t === 'users'
+                ? '用户管理'
+                : t === 'permissions'
+                  ? '权限管理'
+                  : t === 'templates'
+                    ? '场景管理'
+                    : t === 'agents'
+                      ? 'Agent 应用'
+                      : t === 'audit'
+                        ? '审计日志'
+                        : '数据统计'}
+            </button>
+          ))}
         </div>
 
         {error && (
@@ -422,17 +420,13 @@ export default function AdminPage() {
                           {u.is_active ? '禁用' : '启用'}
                         </button>
                       )}
-                      {u.id === user?.id && (
-                        <span className="text-xs text-gray-400">当前用户</span>
-                      )}
+                      {u.id === user?.id && <span className="text-xs text-gray-400">当前用户</span>}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {users.length === 0 && (
-              <div className="py-12 text-center text-gray-400">暂无用户</div>
-            )}
+            {users.length === 0 && <div className="py-12 text-center text-gray-400">暂无用户</div>}
           </div>
         ) : tab === 'permissions' ? (
           <div className="space-y-3">
@@ -457,10 +451,7 @@ export default function AdminPage() {
                           {doc.status === 'indexed' ? '已索引' : doc.status}
                         </span>
                       </div>
-                      <div
-                        className="relative shrink-0"
-                        ref={isSearching ? searchRef : undefined}
-                      >
+                      <div className="relative shrink-0" ref={isSearching ? searchRef : undefined}>
                         <button
                           onClick={() => {
                             setSearchingDocId(isSearching ? null : doc.id);
@@ -647,9 +638,7 @@ export default function AdminPage() {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between p-4 border-b shrink-0">
-                    <h3 className="font-semibold">
-                      {templateForm.name ? '编辑场景' : '新建场景'}
-                    </h3>
+                    <h3 className="font-semibold">{templateForm.name ? '编辑场景' : '新建场景'}</h3>
                     <button
                       onClick={() => setTemplateForm(null)}
                       className="text-gray-400 hover:text-gray-600"
@@ -662,9 +651,7 @@ export default function AdminPage() {
                       <label className="text-xs text-gray-500 mb-1 block">名称</label>
                       <input
                         value={templateForm.name}
-                        onChange={(e) =>
-                          setTemplateForm({ ...templateForm, name: e.target.value })
-                        }
+                        onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
                         className="w-full text-sm border rounded-lg px-3 py-2 input-base"
                         placeholder="如：HR场景、技术问答"
                       />
@@ -708,9 +695,7 @@ export default function AdminPage() {
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">
-                          检索数量 (top_k)
-                        </label>
+                        <label className="text-xs text-gray-500 mb-1 block">检索数量 (top_k)</label>
                         <input
                           type="number"
                           value={templateForm.top_k}
@@ -883,9 +868,7 @@ export default function AdminPage() {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between p-4 border-b shrink-0">
-                    <h3 className="font-semibold">
-                      {agentForm.id ? '编辑 Agent' : '新建 Agent'}
-                    </h3>
+                    <h3 className="font-semibold">{agentForm.id ? '编辑 Agent' : '新建 Agent'}</h3>
                     <button
                       onClick={() => setAgentForm(null)}
                       className="text-gray-400 hover:text-gray-600"
@@ -954,9 +937,7 @@ export default function AdminPage() {
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">
-                          检索数量 (top_k)
-                        </label>
+                        <label className="text-xs text-gray-500 mb-1 block">检索数量 (top_k)</label>
                         <input
                           type="number"
                           value={agentForm.top_k}
@@ -1097,10 +1078,7 @@ export default function AdminPage() {
                   { label: '今日对话', value: stats.today_conversations },
                   { label: '检索命中率', value: `${stats.hit_rate}%` },
                 ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="bg-white rounded-xl shadow-sm border p-4 md:p-6"
-                  >
+                  <div key={item.label} className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
                     <div className="text-xs md:text-sm text-gray-500 mb-1">{item.label}</div>
                     <div className="text-xl md:text-3xl font-bold text-gray-900">
                       {item.value.toLocaleString()}
