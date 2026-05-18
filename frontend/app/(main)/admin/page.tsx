@@ -598,7 +598,7 @@ export default function AdminPage() {
                     rerank_top_k: 3,
                   })
                 }
-                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 新建场景
               </button>
@@ -830,7 +830,7 @@ export default function AdminPage() {
                     rerank_top_k: 3,
                   })
                 }
-                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 新建 Agent
               </button>

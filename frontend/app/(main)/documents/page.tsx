@@ -121,7 +121,7 @@ export default function DocumentsPage() {
                 </select>
                 <button
                   onClick={() => setShowCreateKb(!showCreateKb)}
-                  className="ml-1 px-3 py-1.5 text-xs font-medium rounded-lg border-none cursor-pointer transition-all"
+                  className="ml-1 px-4 py-2 text-sm font-medium rounded-lg border-none cursor-pointer transition-all"
                   style={{ background: 'var(--c-primary)', color: '#fff' }}
                 >
                   新建知识库
