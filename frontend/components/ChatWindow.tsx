@@ -47,13 +47,16 @@ export default function ChatWindow() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, waitingFirstToken]);
 
   useEffect(() => {
-    if (!currentConvId) return;
-    if (streaming) return;
+    if (!currentConvId) {
+      setMessages([]);
+      return;
+    }
 
     // 有缓存时直接使用，不显示加载状态
     const cached = messagesCache[currentConvId];
@@ -82,7 +85,7 @@ export default function ChatWindow() {
       })
       .catch((e) => setChatError(`加载失败: ${e.message}`))
       .finally(() => setLoadingMessages(false));
-  }, [currentConvId, streaming]);
+  }, [currentConvId]);
 
   const handleSend = async (content: string) => {
     const controller = new AbortController();
@@ -133,6 +136,11 @@ export default function ChatWindow() {
       setStreaming(false);
       setWaitingFirstToken(false);
       abortRef.current = null;
+      // 更新缓存，避免后续切换对话时使用过期数据
+      if (convId) {
+        const current = useStore.getState().messages;
+        setCachedMessages(convId, current);
+      }
       api
         .get<any[]>('/chat/conversations')
         .then(setConversations)
