@@ -50,6 +50,25 @@ class RuleBasedPlanner:
                     reason="工具观察显示材料缺失，需要用户补充。",
                 )
 
+            # 校验票据（在提交前）
+            if not self._used_tool(state, "validate_invoice") and "validate_invoice" in available_tools:
+                receipt_ids = self._extract_receipt_ids(state)
+                if receipt_ids:
+                    return AgentAction(
+                        action_type="tool",
+                        tool_name="validate_invoice",
+                        arguments={"receipt_ids": receipt_ids},
+                        reason="提交前校验票据合规性。",
+                    )
+
+            # 校验失败则反问
+            if self._used_tool(state, "validate_invoice") and "校验未通过" in observations_text:
+                return AgentAction(
+                    action_type="clarify",
+                    question="票据校验未通过（日期不一致或信息不完整），请确认是否仍要提交？",
+                    reason="票据校验失败，需要用户确认。",
+                )
+
             if not self._used_tool(state, "submit_reimbursement") and "submit_reimbursement" in available_tools:
                 return AgentAction(
                     action_type="tool",
@@ -96,7 +115,17 @@ class RuleBasedPlanner:
 
     def _extract_city(self, text: str) -> str | None:
         match = re.search(r"([一-鿿]{2,4})(?:出差|差旅)", text)
+        if match:
+            return match.group(1)
+        match = re.search(r"(?:上周|本周|下周)?([一-鿿]{2,4})(?:出差|差旅)", text)
         return match.group(1) if match else None
+
+    def _extract_receipt_ids(self, state: AgentState) -> list[str]:
+        for obs in reversed(state.observations):
+            receipts = obs.data.get("receipts", [])
+            if receipts:
+                return [r["id"] for r in receipts]
+        return []
 
     def _used_tool(self, state: AgentState, tool_name: str) -> bool:
         return any(step.action and step.action.tool_name == tool_name for step in state.steps)

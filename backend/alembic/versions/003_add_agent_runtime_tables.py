@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "003_add_agent_runtime_tables"
-down_revision = "002_add_tsvector_and_feedback"
+down_revision = "a1b2c3d4e5f6"
 branch_labels = None
 depends_on = None
 

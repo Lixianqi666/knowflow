@@ -46,8 +46,10 @@ async def list_receipts(ctx: ToolContext, employee_name: str) -> ToolResult:
         }
         for r in receipts
     ]
-    types = {r.receipt_type for r in receipts}
-    if "交通" not in types or "住宿" not in types:
+    transport_types = {"交通", "高铁", "火车", "飞机", "汽车"}
+    has_transport = any(t in transport_types for t in {r.receipt_type for r in receipts})
+    has_hotel = "住宿" in {r.receipt_type for r in receipts}
+    if not has_transport or not has_hotel:
         return ToolResult(status="ok", content="票据不完整，缺少交通或住宿票据", data={"receipts": data})
     return ToolResult(status="ok", content=f"找到 {len(receipts)} 张票据", data={"receipts": data})
 
@@ -55,7 +57,34 @@ async def list_receipts(ctx: ToolContext, employee_name: str) -> ToolResult:
 async def validate_invoice(ctx: ToolContext, receipt_ids: list[str]) -> ToolResult:
     if not receipt_ids:
         return ToolResult(status="error", content="缺少票据 ID", error="missing_receipt_ids")
-    return ToolResult(status="ok", content="票据校验通过", data={"receipt_ids": receipt_ids})
+    if not ctx.db:
+        return ToolResult(status="error", content="数据库不可用", error="missing_db")
+    result = await ctx.db.execute(select(TravelReceipt).where(TravelReceipt.id.in_(receipt_ids)))
+    receipts = list(result.scalars().all())
+    if not receipts:
+        return ToolResult(status="error", content="未找到指定票据", error="receipt_not_found")
+
+    issues = []
+    dates = set()
+    for r in receipts:
+        dates.add(str(r.occurred_at.date()) if r.occurred_at else None)
+        if r.is_valid != "true":
+            issues.append(f"{r.receipt_type}票据({r.amount}元)无效")
+
+    if len(dates) > 1:
+        issues.append(f"票据日期不一致：{', '.join(sorted(filter(None, dates)))}")
+
+    if issues:
+        return ToolResult(
+            status="ok",
+            content=f"校验未通过：{'; '.join(issues)}",
+            data={"valid": False, "issues": issues, "receipt_count": len(receipts)},
+        )
+    return ToolResult(
+        status="ok",
+        content=f"票据校验通过，共 {len(receipts)} 张",
+        data={"valid": True, "receipt_count": len(receipts)},
+    )
 
 
 async def submit_reimbursement(ctx: ToolContext, employee_name: str, trip_city: str | None = None) -> ToolResult:
@@ -63,8 +92,10 @@ async def submit_reimbursement(ctx: ToolContext, employee_name: str, trip_city: 
         return ToolResult(status="error", content="数据库不可用", error="missing_db")
     result = await ctx.db.execute(select(TravelReceipt).where(TravelReceipt.employee_name == employee_name))
     receipts = list(result.scalars().all())
-    types = {r.receipt_type for r in receipts}
-    if "交通" not in types or "住宿" not in types:
+    transport_types = {"交通", "高铁", "火车", "飞机", "汽车"}
+    has_transport = any(t in transport_types for t in {r.receipt_type for r in receipts})
+    has_hotel = "住宿" in {r.receipt_type for r in receipts}
+    if not has_transport or not has_hotel:
         return ToolResult(status="error", content="提交失败：缺少交通或住宿票据", error="missing_receipts")
     amount = sum(r.amount for r in receipts)
     req = ReimbursementRequest(

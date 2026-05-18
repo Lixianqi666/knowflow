@@ -65,7 +65,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'"
     mem_limit: 512m
     cpus: '0.5'
     deploy:
