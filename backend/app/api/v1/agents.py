@@ -355,7 +355,11 @@ async def send_message(
                             sources=[],
                         )
                     )
-                    yield f"data: {json.dumps({'type': 'token', 'data': state.clarify_question}, ensure_ascii=False)}\n\n"
+                    payload = json.dumps(
+                        {"type": "token", "data": state.clarify_question},
+                        ensure_ascii=False,
+                    )
+                    yield f"data: {payload}\n\n"
                 elif state.final_answer:
                     db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
                     db.add(
@@ -366,11 +370,23 @@ async def send_message(
                             sources=[],
                         )
                     )
-                    yield f"data: {json.dumps({'type': 'token', 'data': state.final_answer}, ensure_ascii=False)}\n\n"
+                    payload = json.dumps(
+                        {"type": "token", "data": state.final_answer},
+                        ensure_ascii=False,
+                    )
+                    yield f"data: {payload}\n\n"
                 elif state.failure_reason:
-                    yield f"data: {json.dumps({'type': 'error', 'data': state.failure_reason}, ensure_ascii=False)}\n\n"
+                    payload = json.dumps(
+                        {"type": "error", "data": state.failure_reason},
+                        ensure_ascii=False,
+                    )
+                    yield f"data: {payload}\n\n"
                 else:
-                    yield f"data: {json.dumps({'type': 'error', 'data': 'Agent 未产生有效结果'}, ensure_ascii=False)}\n\n"
+                    payload = json.dumps(
+                        {"type": "error", "data": "Agent 未产生有效结果"},
+                        ensure_ascii=False,
+                    )
+                    yield f"data: {payload}\n\n"
 
                 await db.commit()
                 yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
