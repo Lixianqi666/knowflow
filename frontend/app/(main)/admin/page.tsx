@@ -318,28 +318,29 @@ export default function AdminPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-xl md:text-2xl font-bold mb-6">管理后台</h1>
 
-        <div className="flex gap-1 mb-6 border-b overflow-x-auto">
+        {/* Tab 栏 - 移动端紧凑可滚动 */}
+        <div className="flex gap-0.5 mb-6 border-b overflow-x-auto scrollbar-hide">
           {(['users', 'permissions', 'templates', 'agents', 'audit', 'stats'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              className={`whitespace-nowrap px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 -mb-px transition-colors shrink-0 ${
                 tab === t
                   ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               {t === 'users'
-                ? '用户管理'
+                ? '用户'
                 : t === 'permissions'
-                  ? '权限管理'
+                  ? '权限'
                   : t === 'templates'
-                    ? '场景管理'
+                    ? '场景'
                     : t === 'agents'
-                      ? 'Agent 应用'
+                      ? 'Agent'
                       : t === 'audit'
-                        ? '审计日志'
-                        : '数据统计'}
+                        ? '审计'
+                        : '统计'}
             </button>
           ))}
         </div>
@@ -368,7 +369,8 @@ export default function AdminPage() {
           </div>
         ) : tab === 'users' ? (
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-            <table className="w-full text-sm">
+            {/* 桌面端表格 */}
+            <table className="w-full text-sm hidden md:table">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">用户</th>
@@ -426,6 +428,48 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
+            {/* 移动端卡片 */}
+            <div className="md:hidden divide-y">
+              {users.map((u) => (
+                <div key={u.id} className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-sm truncate">{u.name}</span>
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${
+                          u.role === 'admin'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {u.role === 'admin' ? '管理员' : '成员'}
+                      </span>
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          u.is_active ? 'bg-green-500' : 'bg-red-400'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 truncate mb-2">{u.email}</div>
+                  {u.id !== user?.id ? (
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleRoleToggle(u)} className="text-xs text-blue-600">
+                        {u.role === 'admin' ? '设为成员' : '设为管理员'}
+                      </button>
+                      <button
+                        onClick={() => handleActiveToggle(u)}
+                        className={`text-xs ${u.is_active ? 'text-red-500' : 'text-green-600'}`}
+                      >
+                        {u.is_active ? '禁用' : '启用'}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">当前用户</span>
+                  )}
+                </div>
+              ))}
+            </div>
             {users.length === 0 && <div className="py-12 text-center text-gray-400">暂无用户</div>}
           </div>
         ) : tab === 'permissions' ? (
