@@ -75,19 +75,7 @@ export default function ChatWindow() {
       return;
     }
 
-    // 无缓存时：已有消息（流式刚结束）则静默刷新，否则显示加载状态
-    if (messages.length > 0) {
-      api
-        .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
-        .then((msgs) => {
-          const mapped = mapApiMessages(msgs);
-          setMessages(mapped);
-          setCachedMessages(currentConvId, mapped);
-        })
-        .catch(() => {});
-      return;
-    }
-
+    // 无缓存时显示加载状态
     setLoadingMessages(true);
     api
       .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
@@ -110,8 +98,8 @@ export default function ChatWindow() {
     setStreaming(true);
     setWaitingFirstToken(true);
 
-    let convId = currentConvId;
     try {
+      let convId = currentConvId;
       if (!convId) {
         const conv = await api.post<any>('/chat/conversations', { title: content.slice(0, 30) });
         convId = conv.id;
@@ -146,11 +134,6 @@ export default function ChatWindow() {
     } catch (err: any) {
       if (err.name !== 'AbortError') setChatError(err.message);
     } finally {
-      // 先更新缓存再结束流式，确保 useEffect 读到最新缓存
-      if (convId) {
-        const current = useStore.getState().messages;
-        setCachedMessages(convId, current);
-      }
       setStreaming(false);
       setWaitingFirstToken(false);
       abortRef.current = null;
