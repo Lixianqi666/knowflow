@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import cache_get, cache_set
 from app.core.deps import get_current_admin
 from app.database import get_db
 from app.models.conversation import Conversation, Message
@@ -103,6 +104,10 @@ async def get_stats(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    cached = await cache_get("cache:admin:stats")
+    if cached:
+        return cached
+
     # 并行执行所有 COUNT 查询
     results = await asyncio.gather(
         db.scalar(select(func.count(User.id))),
@@ -130,7 +135,7 @@ async def get_stats(
     user_count, doc_count, conv_count, chunk_count, kb_count, msg_count = results[:6]
     total_assistant, hit_assistant, praise, critic, today = results[6:]
     hit_rate = round(hit_assistant / total_assistant * 100, 1) if total_assistant else 0
-    return {
+    data = {
         "users": user_count,
         "documents": doc_count,
         "conversations": conv_count,
@@ -142,6 +147,8 @@ async def get_stats(
         "criticism": critic or 0,
         "today_conversations": today or 0,
     }
+    await cache_set("cache:admin:stats", data, ttl=60)
+    return data
 
 
 @router.get("/documents")

@@ -11,6 +11,7 @@ from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.cache import cache_delete, cache_get, cache_set
 from app.core.ratelimit import upload_rate_limit
 from app.core.security import get_current_user
 from app.database import get_db
@@ -162,6 +163,7 @@ async def upload_file(
     index_document_task.delay(str(doc.id))
 
     logger.info(f"文档上传成功: {doc.title} (id={doc.id}, user={user.id})")
+    await cache_delete(f"cache:doclist:{user.id}:*")
     return {"id": str(doc.id), "title": doc.title, "status": "processing"}
 
 
@@ -186,10 +188,15 @@ async def list_documents(
                 select(SourcePermission.source_id).where(SourcePermission.user_id == user.id)
             )
         )
+    cache_key = f"cache:doclist:{user.id}:{kb_id}:{limit}:{offset}"
+    cached = await cache_get(cache_key)
+    if cached:
+        return cached
+
     total = await db.scalar(select(func.count()).select_from(base.subquery()))
     result = await db.execute(base.order_by(Document.created_at.desc()).offset(offset).limit(limit))
     docs = result.scalars().all()
-    return {
+    data = {
         "total": total or 0,
         "items": [
             {
@@ -202,6 +209,8 @@ async def list_documents(
             for d in docs
         ],
     }
+    await cache_set(cache_key, data, ttl=30)
+    return data
 
 
 @router.get("/stats")
@@ -279,6 +288,7 @@ async def delete_document(
             "deleted_by": str(user.id),
         },
     )
+    await cache_delete(f"cache:doclist:{user.id}:*")
     return {"detail": "已删除"}
 
 

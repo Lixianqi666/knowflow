@@ -11,6 +11,7 @@ from app.agent_runtime.business_tools import build_business_tool_registry
 from app.agent_runtime.runtime import AgentRuntime
 from app.agent_runtime.tools import ToolContext
 from app.agent_runtime.trace import step_to_event
+from app.core.cache import cache_delete, cache_get, cache_set
 from app.core.deps import get_current_admin
 from app.core.security import get_current_user
 from app.database import async_session, get_db
@@ -108,6 +109,7 @@ async def create_agent(
     )
     db.add(agent)
     await db.flush()
+    await cache_delete(AGENTS_CACHE_KEY)
     return {"id": str(agent.id), "name": agent.name}
 
 
@@ -138,6 +140,7 @@ async def update_agent(
     if data.is_active is not None:
         agent.is_active = data.is_active
     await db.flush()
+    await cache_delete(AGENTS_CACHE_KEY)
     return {"id": str(agent.id), "name": agent.name}
 
 
@@ -152,10 +155,14 @@ async def delete_agent(
         raise HTTPException(status_code=404, detail="Agent 不存在")
     agent.is_active = False
     await db.flush()
+    await cache_delete(AGENTS_CACHE_KEY)
     return {"detail": "已停用"}
 
 
 # ---------- Agent 使用 (所有用户) ----------
+
+
+AGENTS_CACHE_KEY = "cache:agents:active"
 
 
 @router.get("/")
@@ -163,10 +170,14 @@ async def list_active_agents(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    cached = await cache_get(AGENTS_CACHE_KEY)
+    if cached:
+        return cached
+
     result = await db.execute(
         select(Agent).where(Agent.is_active.is_(True)).order_by(Agent.created_at.desc())
     )
-    return [
+    data = [
         {
             "id": str(a.id),
             "name": a.name,
@@ -176,6 +187,8 @@ async def list_active_agents(
         }
         for a in result.scalars().all()
     ]
+    await cache_set(AGENTS_CACHE_KEY, data, ttl=120)
+    return data
 
 
 @router.get("/{agent_id}")
