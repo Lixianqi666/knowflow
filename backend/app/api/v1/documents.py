@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 from pathlib import Path
@@ -73,50 +74,60 @@ async def upload_file(
     if suffix in (".txt", ".md", ".markdown"):
         text_content = content.decode("utf-8", errors="ignore")
     elif suffix == ".pdf":
-        import pdfplumber
 
-        try:
-            with pdfplumber.open(str(filepath)) as pdf:
-                pages = []
-                for page in pdf.pages:
-                    tables = page.extract_tables()
-                    page_text = page.extract_text() or ""
-                    # 表格以 tab 分隔追加到文本中
-                    for tbl in tables:
-                        if tbl:
-                            rows = ["\t".join(str(c or "") for c in row) for row in tbl]
-                            page_text += "\n" + "\n".join(rows)
-                    pages.append(page_text)
-                text_content = "\n\n".join(pages)
-        except Exception:
-            text_content = ""
+        def _parse_pdf() -> str:
+            import pdfplumber
+
+            try:
+                with pdfplumber.open(str(filepath)) as pdf:
+                    pages = []
+                    for page in pdf.pages:
+                        page_text = page.extract_text() or ""
+                        for tbl in page.extract_tables() or []:
+                            if tbl:
+                                rows = ["\t".join(str(c or "") for c in row) for row in tbl]
+                                page_text += "\n" + "\n".join(rows)
+                        pages.append(page_text)
+                    return "\n\n".join(pages)
+            except Exception:
+                return ""
+
+        text_content = await asyncio.to_thread(_parse_pdf)
     elif suffix == ".docx":
-        import io
 
-        from docx import Document as DocxDocument
+        def _parse_docx() -> str:
+            import io
 
-        doc = DocxDocument(io.BytesIO(content))
-        text_content = "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
+            from docx import Document as DocxDocument
+
+            doc = DocxDocument(io.BytesIO(content))
+            return "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
+
+        text_content = await asyncio.to_thread(_parse_docx)
     elif suffix == ".xlsx":
-        import io
 
-        from openpyxl import load_workbook
+        def _parse_xlsx() -> str:
+            import io
 
-        wb = load_workbook(io.BytesIO(content), read_only=True)
-        sections = []
-        for sheet in wb.worksheets:
-            sheet_name = sheet.title
-            all_rows = list(sheet.iter_rows(values_only=True))
-            if not all_rows:
-                continue
-            header = [str(c or "") for c in all_rows[0]]
-            lines = [f"## 表格：{sheet_name}"]
-            for row in all_rows[1:]:
-                pairs = [f"{header[i]}：{str(c)}" for i, c in enumerate(row) if c is not None]
-                if pairs:
-                    lines.append("；".join(pairs))
-            sections.append("\n".join(lines))
-        text_content = "\n\n".join(sections)
+            from openpyxl import load_workbook
+
+            wb = load_workbook(io.BytesIO(content), read_only=True)
+            sections = []
+            for sheet in wb.worksheets:
+                sheet_name = sheet.title
+                all_rows = list(sheet.iter_rows(values_only=True))
+                if not all_rows:
+                    continue
+                header = [str(c or "") for c in all_rows[0]]
+                lines = [f"## 表格：{sheet_name}"]
+                for row in all_rows[1:]:
+                    pairs = [f"{header[i]}：{str(c)}" for i, c in enumerate(row) if c is not None]
+                    if pairs:
+                        lines.append("；".join(pairs))
+                sections.append("\n".join(lines))
+            return "\n\n".join(sections)
+
+        text_content = await asyncio.to_thread(_parse_xlsx)
     else:
         raise HTTPException(status_code=400, detail=f"不支持的文件格式: {suffix}")
 

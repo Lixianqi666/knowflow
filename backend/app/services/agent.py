@@ -9,7 +9,7 @@ from app.core.llm import llm_service
 from app.core.prompts import NO_CONTEXT_SYSTEM, RAG_SYSTEM, build_messages, parse_rag_response
 from app.models.agent import Agent
 from app.models.agent_session import AgentMessage, AgentSession
-from app.services.retrieval import RetrievalService, RetrievedChunk
+from app.services.retrieval import RetrievalService
 from app.services.rewriter import rewrite as rewrite_query
 
 logger = logging.getLogger(__name__)
@@ -54,30 +54,16 @@ class AgentService:
         history_summary = " ".join(m["content"][:60] for m in history_msgs[-4:])
         search_query = await rewrite_query(user_message, history_summary)
 
-        chunks: list[RetrievedChunk] = []
         if agent_kb_ids:
-            for kb_id in agent_kb_ids:
-                try:
-                    kbs = await self.retrieval.search(
-                        search_query,
-                        user_id,
-                        is_admin=is_admin,
-                        top_k=top_k,
-                        threshold=threshold,
-                        rerank_top_k=rerank_top_k,
-                        kb_id=kb_id,
-                    )
-                    chunks.extend(kbs)
-                except Exception as e:
-                    logger.debug(f"Agent 知识库 {kb_id} 检索失败: {e}")
-            seen_ids = set()
-            unique_chunks = []
-            for c in chunks:
-                cid = str(c.id)
-                if cid not in seen_ids:
-                    seen_ids.add(cid)
-                    unique_chunks.append(c)
-            chunks = unique_chunks[:top_k]
+            chunks = await self.retrieval.search(
+                search_query,
+                user_id,
+                is_admin=is_admin,
+                top_k=top_k,
+                threshold=threshold,
+                rerank_top_k=rerank_top_k,
+                kb_ids=agent_kb_ids,
+            )
         else:
             chunks = await self.retrieval.search(
                 search_query,

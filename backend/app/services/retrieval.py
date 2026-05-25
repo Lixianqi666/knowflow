@@ -11,6 +11,15 @@ from app.config import EN_STOP, ZH_STOP, settings
 from app.core.llm import embedding_service
 from app.services.reranker import reranker_service
 
+
+def _get_kb_filter(kb_id: str | None = None, kb_ids: list[str] | None = None) -> tuple[str, dict]:
+    if kb_ids:
+        return " AND d.kb_id = ANY(:kb_ids::uuid[])", {"kb_ids": kb_ids}
+    if kb_id:
+        return " AND d.kb_id = :kb_id::uuid", {"kb_id": kb_id}
+    return "", {}
+
+
 logger = logging.getLogger(__name__)
 
 # 非管理员的权限过滤子句
@@ -77,6 +86,7 @@ class RetrievalService:
         threshold: float | None = None,
         rerank_top_k: int | None = None,
         kb_id: str | None = None,
+        kb_ids: list[str] | None = None,
     ) -> list[RetrievedChunk]:
         top_k = top_k or settings.RETRIEVAL_TOP_K
         threshold = threshold or settings.RETRIEVAL_THRESHOLD
@@ -85,9 +95,9 @@ class RetrievalService:
 
         # 阶段1: 双路召回（向量+BM25）
         vector_results = await self._vector_search_safe(
-            query, user_id, perm, kb_id, top_k * 2, threshold
+            query, user_id, perm, kb_id, kb_ids, top_k * 2, threshold
         )
-        bm25_results = await self._bm25_search(query, user_id, perm, kb_id, top_k * 2)
+        bm25_results = await self._bm25_search(query, user_id, perm, kb_id, kb_ids, top_k * 2)
 
         # 阶段2: RRF 融合
         merged = self._rrf_fusion(vector_results, bm25_results, k=settings.RRF_K)
@@ -106,7 +116,7 @@ class RetrievalService:
                 deduped.append(c)
 
         # 阶段4: LIKE 子串补充——中文人名等不被向量/BM25 很好匹配的场景
-        like_results = await self._like_search(query, user_id, perm, kb_id, top_k * 2)
+        like_results = await self._like_search(query, user_id, perm, kb_id, kb_ids, top_k * 2)
         if like_results:
             existing_ids = {str(c.id) for c in deduped}
             for c in like_results:
@@ -118,14 +128,23 @@ class RetrievalService:
         return await reranker_service.rerank(query, deduped, top_k=rerank_top_k)
 
     async def _vector_search_safe(
-        self, query: str, user_id: str, perm: str, kb_id: str | None, top_k: int, threshold: float
+        self,
+        query: str,
+        user_id: str,
+        perm: str,
+        kb_id: str | None,
+        kb_ids: list[str] | None,
+        top_k: int,
+        threshold: float,
     ) -> list[RetrievedChunk]:
         try:
             query_emb = await asyncio.wait_for(
                 embedding_service.embed_single(query), timeout=settings.EMBEDDING_TIMEOUT
             )
             if query_emb:
-                return await self._vector_search(query_emb, user_id, perm, kb_id, top_k, threshold)
+                return await self._vector_search(
+                    query_emb, user_id, perm, kb_id, kb_ids, top_k, threshold
+                )
         except Exception as e:
             logger.debug(f"向量搜索失败: {e}")
         return []
@@ -136,10 +155,11 @@ class RetrievalService:
         user_id: str,
         perm: str,
         kb_id: str | None,
+        kb_ids: list[str] | None,
         top_k: int,
         threshold: float,
     ) -> list[RetrievedChunk]:
-        kb_cond = " AND d.kb_id = :kb_id::uuid" if kb_id else ""
+        kb_cond, kb_params = _get_kb_filter(kb_id, kb_ids)
         emb_str = "[" + ",".join(str(x) for x in embedding) + "]"
         sql = text(f"""
             SELECT dc.id, dc.content, d.title, d.id AS document_id,
@@ -151,9 +171,7 @@ class RetrievalService:
             ORDER BY dc.embedding <=> :embedding
             LIMIT :limit
         """)
-        params = {"embedding": emb_str, "limit": top_k, "uid": user_id}
-        if kb_id:
-            params["kb_id"] = kb_id
+        params = {"embedding": emb_str, "limit": top_k, "uid": user_id, **kb_params}
         result = await self.db.execute(sql, params)
         rows = result.fetchall()
         return [
@@ -169,10 +187,16 @@ class RetrievalService:
         ]
 
     async def _bm25_search(
-        self, query: str, user_id: str, perm: str, kb_id: str | None, top_k: int
+        self,
+        query: str,
+        user_id: str,
+        perm: str,
+        kb_id: str | None,
+        kb_ids: list[str] | None,
+        top_k: int,
     ) -> list[RetrievedChunk]:
-        kb_cond = " AND d.kb_id = :kb_id::uuid" if kb_id else ""
-        tokens = _tokenize(query)
+        kb_cond, kb_params = _get_kb_filter(kb_id, kb_ids)
+        tokens = await asyncio.to_thread(_tokenize, query)
         if not tokens:
             cleaned = re.sub(r"[？！。，、；：“”‘’（）\[\]【】\s]+", "", query).strip()
             tokens = [cleaned] if cleaned else [query]
@@ -189,9 +213,7 @@ class RetrievalService:
             ORDER BY score DESC
             LIMIT :limit
         """)
-        params = {"tsquery": tsquery_str, "limit": top_k, "uid": user_id}
-        if kb_id:
-            params["kb_id"] = kb_id
+        params = {"tsquery": tsquery_str, "limit": top_k, "uid": user_id, **kb_params}
         result = await self.db.execute(sql, params)
         rows = result.fetchall()
         return [
@@ -206,7 +228,13 @@ class RetrievalService:
         ]
 
     async def _like_search(
-        self, query: str, user_id: str, perm: str, kb_id: str | None, top_k: int
+        self,
+        query: str,
+        user_id: str,
+        perm: str,
+        kb_id: str | None,
+        kb_ids: list[str] | None,
+        top_k: int,
     ) -> list[RetrievedChunk]:
         """CJK 子串直接匹配（不依赖分词器，中文名搜索兜底）"""
         import re
@@ -214,13 +242,11 @@ class RetrievalService:
         cjk_terms = re.findall(r"[一-鿿]{2,}", query)
         if not cjk_terms:
             return []
-        kb_cond = " AND d.kb_id = :kb_id::uuid" if kb_id else ""
+        kb_cond, kb_params = _get_kb_filter(kb_id, kb_ids)
         like_conds = " OR ".join("dc.content ILIKE :t{}".format(i) for i in range(len(cjk_terms)))
-        params = {"uid": user_id}
+        params = {"uid": user_id, **kb_params}
         for i, term in enumerate(cjk_terms):
             params[f"t{i}"] = f"%{term}%"
-        if kb_id:
-            params["kb_id"] = kb_id
         sql = text(f"""
             SELECT dc.id, dc.content, d.title, d.id AS document_id, 0.5 AS score
             FROM document_chunks dc
