@@ -10,7 +10,7 @@ export interface Source {
 
 export interface User {
   id: string;
-  username: string;
+  name: string;
   role: 'admin' | 'member';
   is_active: boolean;
 }
