@@ -80,7 +80,7 @@ export default function ChatWindow() {
           setMessages(mapped);
           setCachedMessages(currentConvId, mapped);
         })
-        .catch(() => {});
+        .catch((e) => console.error('加载消息失败', e));
       return;
     }
 
@@ -156,7 +156,7 @@ export default function ChatWindow() {
       api
         .get<Conversation[]>('/chat/conversations')
         .then(setConversations)
-        .catch(() => {});
+        .catch((e) => console.error('加载消息失败', e));
     }
   };
 

@@ -27,7 +27,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       api
         .get<any[]>('/chat/conversations')
         .then((items) => setConversations(Array.isArray(items) ? items : []))
-        .catch(() => {});
+        .catch((e) => console.error('加载对话列表失败', e));
     }
   }, [token]);
 

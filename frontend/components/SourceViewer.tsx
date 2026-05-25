@@ -29,7 +29,7 @@ export default function SourceViewer({ documentId, highlightChunkId, onClose }: 
         setDoc(data.document);
         setChunks(Array.isArray(data?.chunks) ? data.chunks : []);
       })
-      .catch(() => {})
+      .catch((e) => console.error('加载文档内容失败', e))
       .finally(() => setLoading(false));
   }, [documentId]);
 

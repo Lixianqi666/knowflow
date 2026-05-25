@@ -26,7 +26,7 @@ export default function DocumentsPage() {
       api
         .get<KB[]>('/knowledge-bases')
         .then((items) => setKbs(Array.isArray(items) ? items : []))
-        .catch(() => {});
+        .catch((e) => console.error('加载知识库列表失败', e));
     }
   }, [token]);
   useEffect(() => {
@@ -36,12 +36,14 @@ export default function DocumentsPage() {
   const createKb = async () => {
     if (!newKbName.trim()) return;
     try {
-      const kb = await api.post<any>('/knowledge-bases', { name: newKbName.trim() });
+      const kb = await api.post<KB>('/knowledge-bases', { name: newKbName.trim() });
       setKbs((prev) => [...prev, kb]);
       setCurrentKbId(kb.id);
       setNewKbName('');
       setShowCreateKb(false);
-    } catch {}
+    } catch (e) {
+      console.error('创建知识库失败', e);
+    }
   };
 
   if (!_hydrated || !token) return null;
@@ -186,14 +188,21 @@ export default function DocumentsPage() {
   );
 }
 
+interface DocStats {
+  all: number;
+  indexed: number;
+  processing: number;
+  others: number;
+}
+
 /* 独立统计组件 */
 function DocStats({ refreshKey, kbId }: { refreshKey: number; kbId?: string }) {
-  const [stats, setStats] = useState({ all: 0, indexed: 0, processing: 0, others: 0 });
+  const [stats, setStats] = useState<DocStats>({ all: 0, indexed: 0, processing: 0, others: 0 });
   useEffect(() => {
     api
-      .get<any>(`/documents/stats${kbId ? `?kb_id=${kbId}` : ''}`)
+      .get<DocStats>(`/documents/stats${kbId ? `?kb_id=${kbId}` : ''}`)
       .then(setStats)
-      .catch(() => {});
+      .catch((e) => console.error('加载文档统计失败', e));
   }, [refreshKey, kbId]);
 
   return (
