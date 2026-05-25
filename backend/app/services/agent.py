@@ -2,10 +2,8 @@ import json
 import logging
 from typing import AsyncGenerator
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.config import settings
 from app.core.llm import llm_service
 from app.core.prompts import NO_CONTEXT_SYSTEM, RAG_SYSTEM, build_messages, parse_rag_response
 from app.models.agent import Agent
