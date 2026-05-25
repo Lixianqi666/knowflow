@@ -1,7 +1,4 @@
 import logging
-import re
-
-import jieba
 
 logger = logging.getLogger(__name__)
 
