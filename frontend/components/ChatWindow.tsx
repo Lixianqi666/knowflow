@@ -110,7 +110,9 @@ export default function ChatWindow() {
     try {
       let convId = currentConvId;
       if (!convId) {
-        const conv = await api.post<{ id: string }>('/chat/conversations', { title: content.slice(0, 30) });
+        const conv = await api.post<{ id: string }>('/chat/conversations', {
+          title: content.slice(0, 30),
+        });
         convId = conv.id;
         setCurrentConvId(convId);
         router.replace(`/chat/${convId}`);

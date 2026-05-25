@@ -30,9 +30,7 @@ async def auto_generate_title(
         return
 
     count = await db.scalar(
-        select(func.count()).where(
-            getattr(message_model, foreign_key_field) == obj.id
-        )
+        select(func.count()).where(getattr(message_model, foreign_key_field) == obj.id)
     )
     if count and count > 2:
         return

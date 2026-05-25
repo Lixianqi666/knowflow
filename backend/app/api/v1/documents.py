@@ -301,9 +301,7 @@ class BatchIds(BaseModel):
     ids: list[str]
 
 
-async def _filter_authorized_doc_ids(
-    data: BatchIds, user: User, db: AsyncSession
-) -> list[UUID]:
+async def _filter_authorized_doc_ids(data: BatchIds, user: User, db: AsyncSession) -> list[UUID]:
     """验证 UUID 格式并过滤出用户有权限的文档 ID"""
     valid_ids = []
     for doc_id in data.ids:

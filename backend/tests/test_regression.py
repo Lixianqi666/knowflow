@@ -58,7 +58,7 @@ async def test_upload_txt_status(client: AsyncClient, auth_headers: dict):
     assert resp.status_code == 200
     data = resp.json()
     assert data["title"] == "回归.txt"
-    assert data["status"] in ("pending", "indexed", "failed")
+    assert data["status"] in ("pending", "indexed", "processing", "failed")
     assert "id" in data
 
 

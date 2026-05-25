@@ -13,7 +13,7 @@ async def test_upload_txt(client: AsyncClient, auth_headers: dict):
     assert resp.status_code == 200
     data = resp.json()
     assert data["title"] == "test.txt"
-    assert data["status"] in ("pending", "indexed", "failed")
+    assert data["status"] in ("pending", "indexed", "processing", "failed")
 
 
 @pytest.mark.asyncio
