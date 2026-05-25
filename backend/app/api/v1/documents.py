@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from uuid import UUID
 
+import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -70,7 +71,9 @@ async def upload_file(
     upload_dir.mkdir(parents=True, exist_ok=True)
     safe_filename = Path(file.filename).name
     filepath = upload_dir / safe_filename
-    filepath.write_bytes(content)
+
+    async with aiofiles.open(filepath, "wb") as f:
+        await f.write(content)
 
     if suffix in (".txt", ".md", ".markdown"):
         text_content = content.decode("utf-8", errors="ignore")

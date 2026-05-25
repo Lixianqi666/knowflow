@@ -237,8 +237,6 @@ class RetrievalService:
         top_k: int,
     ) -> list[RetrievedChunk]:
         """CJK 子串直接匹配（不依赖分词器，中文名搜索兜底）"""
-        import re
-
         cjk_terms = re.findall(r"[一-鿿]{2,}", query)
         if not cjk_terms:
             return []

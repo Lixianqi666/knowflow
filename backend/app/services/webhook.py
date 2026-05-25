@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import json
@@ -27,7 +28,8 @@ async def dispatch(db: AsyncSession, event: str, payload: dict):
     body = json.dumps({"event": event, "payload": payload}, ensure_ascii=False).encode()
 
     async with httpx.AsyncClient(timeout=10) as client:
-        for hook in hooks:
+
+        async def _send(hook):
             try:
                 headers = {"Content-Type": "application/json"}
                 if hook.secret:
@@ -37,3 +39,5 @@ async def dispatch(db: AsyncSession, event: str, payload: dict):
                 logger.debug(f"webhook sent: {event} -> {hook.url}")
             except Exception as e:
                 logger.warning(f"webhook failed: {hook.url} - {e}")
+
+        await asyncio.gather(*[_send(h) for h in hooks])

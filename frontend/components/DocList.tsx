@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import dynamic from 'next/dynamic';
 import { FileText, RefreshCw, Trash2, X, Search } from 'lucide-react';
+
+const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false });
 import { api } from '@/lib/api';
 import { toast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';

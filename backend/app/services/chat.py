@@ -55,7 +55,7 @@ class ChatService:
             elif "auth" in msg or "api_key" in msg or "unauthorized" in msg:
                 friendly = "LLM API 密钥无效，请检查配置"
             else:
-                friendly = f"服务内部错误: {e}"
+                friendly = "服务内部错误，请稍后重试"
             yield json.dumps({"type": "error", "data": friendly}, ensure_ascii=False)
 
     async def _do_stream(

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from app.config import settings
@@ -37,7 +38,7 @@ class RerankerService:
         try:
             model = _get_model()
             pairs = [[query, c.content] for c in chunks]
-            scores = model.compute_score(pairs, normalize=True)
+            scores = await asyncio.to_thread(model.compute_score, pairs, True)
             if not isinstance(scores, list):
                 scores = [scores]
             for i, score in enumerate(scores):
