@@ -8,10 +8,19 @@ import MessageBubble from './MessageBubble';
 import InputBox from './InputBox';
 import SourceViewer from './SourceViewer';
 import { MessageSquare } from 'lucide-react';
+import { Message, Conversation } from '@/lib/store';
 
-function mapApiMessages(msgs: any[]) {
+interface ApiMessage {
+  id?: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: Message['sources'];
+  rating?: number | null;
+}
+
+function mapApiMessages(msgs: ApiMessage[]): Message[] {
   return Array.isArray(msgs)
-    ? msgs.map((m: any) => ({
+    ? msgs.map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,
@@ -65,7 +74,7 @@ export default function ChatWindow() {
       setMessages(cached);
       // 后台静默刷新
       api
-        .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
+        .get<ApiMessage[]>(`/chat/conversations/${currentConvId}/messages`)
         .then((msgs) => {
           const mapped = mapApiMessages(msgs);
           setMessages(mapped);
@@ -78,7 +87,7 @@ export default function ChatWindow() {
     // 无缓存时显示加载状态
     setLoadingMessages(true);
     api
-      .get<any[]>(`/chat/conversations/${currentConvId}/messages`)
+      .get<ApiMessage[]>(`/chat/conversations/${currentConvId}/messages`)
       .then((msgs) => {
         const mapped = mapApiMessages(msgs);
         setMessages(mapped);
@@ -101,36 +110,41 @@ export default function ChatWindow() {
     try {
       let convId = currentConvId;
       if (!convId) {
-        const conv = await api.post<any>('/chat/conversations', { title: content.slice(0, 30) });
+        const conv = await api.post<{ id: string }>('/chat/conversations', { title: content.slice(0, 30) });
         convId = conv.id;
         setCurrentConvId(convId);
         router.replace(`/chat/${convId}`);
-        setConversations(await api.get<any[]>('/chat/conversations'));
+        setConversations(await api.get<Conversation[]>('/chat/conversations'));
       }
       const stream = await api.streamChat(convId!, content, controller.signal);
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      const processLine = (line: string) => {
+        if (!line.startsWith('data: ')) return;
+        try {
+          const event = JSON.parse(line.slice(6));
+          if (event.type === 'token') {
+            setWaitingFirstToken(false);
+            updateLastAssistant(event.data);
+          } else if (event.type === 'sources') {
+            setSources(event.data);
+          } else if (event.type === 'error') {
+            setChatError(event.data);
+          }
+        } catch {}
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        for (const line of buffer.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === 'token') {
-              setWaitingFirstToken(false);
-              updateLastAssistant(event.data);
-            } else if (event.type === 'sources') {
-              setSources(event.data);
-            } else if (event.type === 'error') {
-              setChatError(event.data);
-            }
-          } catch {}
-        }
-        buffer = '';
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) processLine(line);
       }
+      // 处理缓冲区中剩余的最后一帧
+      if (buffer.trim()) processLine(buffer);
     } catch (err: any) {
       if (err.name !== 'AbortError') setChatError(err.message);
     } finally {
@@ -138,7 +152,7 @@ export default function ChatWindow() {
       setWaitingFirstToken(false);
       abortRef.current = null;
       api
-        .get<any[]>('/chat/conversations')
+        .get<Conversation[]>('/chat/conversations')
         .then(setConversations)
         .catch(() => {});
     }
@@ -227,7 +241,7 @@ export default function ChatWindow() {
             <>
               {messages.map((msg, i) => (
                 <MessageBubble
-                  key={i}
+                  key={msg.id || i}
                   role={msg.role}
                   content={msg.content}
                   sources={

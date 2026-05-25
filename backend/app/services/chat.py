@@ -232,38 +232,11 @@ class ChatService:
 
     async def _auto_title(self, conversation_id: str, user_message: str) -> None:
         conv = await self.db.get(Conversation, conversation_id)
-        if not conv or not _is_default_title(conv.title):
+        if not conv:
             return
-        count = await self.db.scalar(
-            select(func.count()).where(Message.conversation_id == conversation_id)
-        )
-        if count and count > 2:
-            return
-        try:
-            from litellm import completion
+        from app.services.common import auto_generate_title
 
-            kwargs = dict(
-                model=settings.LLM_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "根据用户的提问，生成 4-6 个字的简短标题，只输出标题本身，不要标点。",
-                    },
-                    {"role": "user", "content": user_message},
-                ],
-                temperature=0.1,
-                max_tokens=20,
-            )
-            if settings.LLM_API_KEY:
-                kwargs["api_key"] = settings.LLM_API_KEY
-            if settings.LLM_BASE_URL:
-                kwargs["api_base"] = settings.LLM_BASE_URL
-            resp = completion(**kwargs)
-            title = resp.choices[0].message.content.strip().strip("\"'").strip()
-            if title and len(title) <= 20:
-                conv.title = title
-        except Exception as e:
-            logger.debug(f"自动标题失败: {e}")
+        await auto_generate_title(self.db, conv, user_message, Message, "conversation_id")
 
     async def _get_history(self, conversation_id: str) -> list[Message]:
         result = await self.db.execute(
@@ -273,7 +246,3 @@ class ChatService:
             .limit(self.MAX_HISTORY)
         )
         return list(reversed(result.scalars().all()))
-
-
-def _is_default_title(title: str | None) -> bool:
-    return not title or title in ("新对话", "") or len(title) >= 30

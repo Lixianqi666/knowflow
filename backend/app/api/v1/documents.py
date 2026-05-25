@@ -1,10 +1,12 @@
 import hashlib
+import logging
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -17,9 +19,27 @@ from app.models.user import User
 from app.services.audit import log as audit_log
 from app.services.webhook import dispatch as webhook_dispatch
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/documents", tags=["文档"])
 
 ALLOWED_EXT = set(settings.ALLOWED_EXTENSIONS.split(","))
+
+
+async def _require_doc_permission(
+    db: AsyncSession, doc_id: str, user: User, action: str = "查看"
+) -> None:
+    """检查用户对文档的权限，无权限时抛出 403"""
+    if user.role == "admin":
+        return
+    perm = await db.execute(
+        select(DocumentPermission).where(
+            DocumentPermission.document_id == doc_id,
+            DocumentPermission.user_id == user.id,
+        )
+    )
+    if not perm.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail=f"无权限{action}该文档")
 
 
 @router.post("/upload")
@@ -30,7 +50,6 @@ async def upload_file(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # 文件类型校验（扩展名 + MIME）
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_EXT:
         raise HTTPException(
@@ -38,20 +57,19 @@ async def upload_file(
             detail=f"不支持的文件格式: {suffix}，允许: {settings.ALLOWED_EXTENSIONS}",
         )
 
-    # 读取文件
     content = await file.read()
     if len(content) > settings.MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413, detail=f"文件过大，最大 {settings.MAX_FILE_SIZE // 1024 // 1024}MB"
         )
 
-    # 保存文件
+    # 清理文件名防止路径穿越
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    filepath = upload_dir / file.filename
+    safe_filename = Path(file.filename).name
+    filepath = upload_dir / safe_filename
     filepath.write_bytes(content)
 
-    # 读取文本内容
     if suffix in (".txt", ".md", ".markdown"):
         text_content = content.decode("utf-8", errors="ignore")
     elif suffix == ".pdf":
@@ -105,7 +123,6 @@ async def upload_file(
     if not text_content.strip():
         raise HTTPException(status_code=400, detail="文件内容为空")
 
-    # 获取或创建本地数据源
     result = await db.execute(select(DataSource).where(DataSource.type == "local"))
     source = result.scalar_one_or_none()
     if not source:
@@ -113,7 +130,6 @@ async def upload_file(
         db.add(source)
         await db.flush()
 
-    # 创建文档记录
     content_hash = hashlib.md5(text_content.encode()).hexdigest()
     doc = Document(
         source_id=source.id,
@@ -126,17 +142,16 @@ async def upload_file(
     db.add(doc)
     await db.flush()
 
-    # 授予上传者读权限（先 flush 保证 doc.id 可用）
+    # flush 保证 doc.id 可用
     db.add(DocumentPermission(document_id=doc.id, user_id=user.id, permission="read"))
     await db.flush()
 
-    # 同步索引（确保文档立即可检索）
-    from app.pipeline.indexer import index_document as _index_document
+    from app.tasks.indexing import index_document_task
 
-    await _index_document(db, doc)
-    doc.status = "indexed"
+    index_document_task.delay(str(doc.id))
 
-    return {"id": str(doc.id), "title": doc.title, "status": doc.status}
+    logger.info(f"文档上传成功: {doc.title} (id={doc.id}, user={user.id})")
+    return {"id": str(doc.id), "title": doc.title, "status": "processing"}
 
 
 @router.get("")
@@ -196,14 +211,20 @@ async def document_stats(
                 select(SourcePermission.source_id).where(SourcePermission.user_id == user.id)
             )
         )
-    rows = (await db.execute(base)).scalars().all()
-    indexed = sum(1 for s in rows if s == "indexed")
-    processing = sum(1 for s in rows if s == "processing")
+
+    stats = await db.execute(
+        select(
+            func.count().label("all"),
+            func.sum(case((Document.status == "indexed", 1), else_=0)).label("indexed"),
+            func.sum(case((Document.status == "processing", 1), else_=0)).label("processing"),
+        ).select_from(base.subquery())
+    )
+    row = stats.one()
     return {
-        "all": len(rows),
-        "indexed": indexed,
-        "processing": processing,
-        "others": len(rows) - indexed - processing,
+        "all": row.all,
+        "indexed": row.indexed,
+        "processing": row.processing,
+        "others": row.all - row.indexed - row.processing,
     }
 
 
@@ -216,16 +237,7 @@ async def get_document(
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
-    # 非管理员检查权限
-    if user.role != "admin":
-        perm = await db.execute(
-            select(DocumentPermission).where(
-                DocumentPermission.document_id == doc_id,
-                DocumentPermission.user_id == user.id,
-            )
-        )
-        if not perm.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="无权限查看该文档")
+    await _require_doc_permission(db, doc_id, user)
     await audit_log(db, str(user.id), "view_doc", "document", doc_id, doc.title)
     return {
         "id": str(doc.id),
@@ -245,16 +257,7 @@ async def delete_document(
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
-    # 非管理员检查权限
-    if user.role != "admin":
-        perm = await db.execute(
-            select(DocumentPermission).where(
-                DocumentPermission.document_id == doc_id,
-                DocumentPermission.user_id == user.id,
-            )
-        )
-        if not perm.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="无权限删除该文档")
+    await _require_doc_permission(db, doc_id, user, "删除")
     await db.delete(doc)
     await webhook_dispatch(
         db,
@@ -278,15 +281,7 @@ async def get_document_chunks(
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
-    if user.role != "admin":
-        perm = await db.execute(
-            select(DocumentPermission).where(
-                DocumentPermission.document_id == doc_id,
-                DocumentPermission.user_id == user.id,
-            )
-        )
-        if not perm.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="无权限查看该文档")
+    await _require_doc_permission(db, doc_id, user)
 
     result = await db.execute(
         select(DocumentChunk)
@@ -306,35 +301,42 @@ class BatchIds(BaseModel):
     ids: list[str]
 
 
+async def _filter_authorized_doc_ids(
+    data: BatchIds, user: User, db: AsyncSession
+) -> list[UUID]:
+    """验证 UUID 格式并过滤出用户有权限的文档 ID"""
+    valid_ids = []
+    for doc_id in data.ids:
+        try:
+            valid_ids.append(UUID(doc_id))
+        except ValueError:
+            continue
+
+    if valid_ids and user.role != "admin":
+        perm_result = await db.execute(
+            select(DocumentPermission.document_id).where(
+                DocumentPermission.document_id.in_(valid_ids),
+                DocumentPermission.user_id == user.id,
+            )
+        )
+        allowed_ids = set(perm_result.scalars().all())
+        valid_ids = [uid for uid in valid_ids if uid in allowed_ids]
+
+    return valid_ids
+
+
 @router.post("/batch-delete")
 async def batch_delete(
     data: BatchIds,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from uuid import UUID
+    valid_ids = await _filter_authorized_doc_ids(data, user, db)
+    if not valid_ids:
+        return {"detail": "已删除 0 个文档"}
 
-    deleted = 0
-    for doc_id in data.ids:
-        try:
-            uid = UUID(doc_id)
-        except ValueError:
-            continue
-        doc = await db.get(Document, uid)
-        if not doc:
-            continue
-        if user.role != "admin":
-            perm = await db.execute(
-                select(DocumentPermission).where(
-                    DocumentPermission.document_id == uid,
-                    DocumentPermission.user_id == user.id,
-                )
-            )
-            if not perm.scalar_one_or_none():
-                continue
-        await db.delete(doc)
-        deleted += 1
-    return {"detail": f"已删除 {deleted} 个文档"}
+    await db.execute(delete(Document).where(Document.id.in_(valid_ids)))
+    return {"detail": f"已删除 {len(valid_ids)} 个文档"}
 
 
 @router.post("/batch-reindex")
@@ -343,31 +345,16 @@ async def batch_reindex(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from uuid import UUID
+    valid_ids = await _filter_authorized_doc_ids(data, user, db)
+    if not valid_ids:
+        return {"detail": "已触发 0 个文档重新索引"}
 
-    triggered = 0
-    for doc_id in data.ids:
-        try:
-            uid = UUID(doc_id)
-        except ValueError:
-            continue
-        doc = await db.get(Document, uid)
-        if not doc:
-            continue
-        if user.role != "admin":
-            perm = await db.execute(
-                select(DocumentPermission).where(
-                    DocumentPermission.document_id == uid,
-                    DocumentPermission.user_id == user.id,
-                )
-            )
-            if not perm.scalar_one_or_none():
-                continue
-        from app.pipeline.indexer import index_document as _reindex
+    from app.tasks.indexing import index_document_task
 
-        await _reindex(db, doc)
-        triggered += 1
-    return {"detail": f"已触发 {triggered} 个文档重新索引"}
+    for uid in valid_ids:
+        index_document_task.delay(str(uid))
+
+    return {"detail": f"已触发 {len(valid_ids)} 个文档重新索引"}
 
 
 @router.get("/{doc_id}/file")
@@ -380,15 +367,7 @@ async def download_file(
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
-    if user.role != "admin":
-        perm = await db.execute(
-            select(DocumentPermission).where(
-                DocumentPermission.document_id == doc_id,
-                DocumentPermission.user_id == user.id,
-            )
-        )
-        if not perm.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="无权限查看该文档")
+    await _require_doc_permission(db, doc_id, user)
 
     filepath = Path(settings.UPLOAD_DIR) / doc.title
     if not filepath.exists():
@@ -411,16 +390,7 @@ async def get_chunk_detail(
     doc = await db.get(Document, chunk.document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
-
-    if user.role != "admin":
-        perm = await db.execute(
-            select(DocumentPermission).where(
-                DocumentPermission.document_id == doc.id,
-                DocumentPermission.user_id == user.id,
-            )
-        )
-        if not perm.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="无权限查看该文档")
+    await _require_doc_permission(db, str(doc.id), user)
 
     result = await db.execute(
         select(DocumentChunk)

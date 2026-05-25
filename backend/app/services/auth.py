@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.user import Token, UserCreate, UserLogin, UserOut
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -25,6 +29,7 @@ class AuthService:
         await self.db.flush()
 
         token = create_access_token(str(user.id))
+        logger.info(f"用户注册成功: {user.email} (id={user.id})")
         return Token(access_token=token, user=UserOut.model_validate(user))
 
     async def login(self, data: UserLogin) -> Token:
@@ -34,4 +39,5 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误")
 
         token = create_access_token(str(user.id))
+        logger.info(f"用户登录成功: {user.email} (id={user.id})")
         return Token(access_token=token, user=UserOut.model_validate(user))

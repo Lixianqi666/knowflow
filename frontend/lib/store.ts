@@ -1,21 +1,36 @@
 import { create } from 'zustand';
 
-interface Message {
+export interface Source {
+  document_id: string;
+  chunk_id: string;
+  title: string;
+  content: string;
+  score?: number;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  role: 'admin' | 'member';
+  is_active: boolean;
+}
+
+export interface Message {
   id?: string;
   role: 'user' | 'assistant';
   content: string;
-  sources?: any[];
+  sources?: Source[];
   rating?: number | null;
 }
 
-interface Conversation {
+export interface Conversation {
   id: string;
   title: string;
   created_at: string;
   updated_at: string;
 }
 
-interface Agent {
+export interface Agent {
   id: string;
   name: string;
   description: string;
@@ -25,7 +40,7 @@ interface Agent {
   threshold?: number;
 }
 
-interface AgentSessionItem {
+export interface AgentSessionItem {
   id: string;
   agent_id: string;
   title: string;
@@ -34,10 +49,10 @@ interface AgentSessionItem {
 
 interface Store {
   token: string | null;
-  user: any | null;
+  user: User | null;
   _hydrated: boolean;
   hydrate: () => void;
-  setAuth: (token: string, user: any) => void;
+  setAuth: (token: string, user: User) => void;
   logout: () => void;
 
   conversations: Conversation[];
@@ -53,8 +68,8 @@ interface Store {
   setMessages: (msgs: Message[]) => void;
   setCachedMessages: (convId: string, msgs: Message[]) => void;
 
-  sources: any[];
-  setSources: (s: any[]) => void;
+  sources: Source[];
+  setSources: (s: Source[]) => void;
 
   streaming: boolean;
   setStreaming: (v: boolean) => void;

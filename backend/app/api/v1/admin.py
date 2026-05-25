@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -102,33 +103,33 @@ async def get_stats(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    user_count = (await db.execute(select(func.count(User.id)))).scalar()
-    doc_count = (await db.execute(select(func.count(Document.id)))).scalar()
-    conv_count = (await db.execute(select(func.count(Conversation.id)))).scalar()
-    chunk_count = (await db.execute(select(func.count(DocumentChunk.id)))).scalar()
-    kb_count = (await db.execute(select(func.count(KnowledgeBase.id)))).scalar()
-    msg_count = (await db.execute(select(func.count(Message.id)))).scalar()
-    # 助手消息数（带来源=检索命中）
-    total_assistant = await db.scalar(
-        select(func.count(Message.id)).where(Message.role == "assistant")
+    # 并行执行所有 COUNT 查询
+    results = await asyncio.gather(
+        db.scalar(select(func.count(User.id))),
+        db.scalar(select(func.count(Document.id))),
+        db.scalar(select(func.count(Conversation.id))),
+        db.scalar(select(func.count(DocumentChunk.id))),
+        db.scalar(select(func.count(KnowledgeBase.id))),
+        db.scalar(select(func.count(Message.id))),
+        db.scalar(select(func.count(Message.id)).where(Message.role == "assistant")),
+        db.scalar(
+            select(func.count(Message.id)).where(
+                Message.role == "assistant",
+                Message.sources.isnot(None),
+                func.jsonb_array_length(Message.sources) > 0,
+            )
+        ),
+        db.scalar(select(func.count(Message.id)).where(Message.rating == 1)),
+        db.scalar(select(func.count(Message.id)).where(Message.rating == -1)),
+        db.scalar(
+            select(func.count(Conversation.id)).where(
+                func.date(Conversation.created_at) == func.current_date()
+            )
+        ),
     )
-    hit_assistant = await db.scalar(
-        select(func.count(Message.id)).where(
-            Message.role == "assistant",
-            Message.sources.isnot(None),
-            func.jsonb_array_length(Message.sources) > 0,
-        )
-    )
+    user_count, doc_count, conv_count, chunk_count, kb_count, msg_count = results[:6]
+    total_assistant, hit_assistant, praise, critic, today = results[6:]
     hit_rate = round(hit_assistant / total_assistant * 100, 1) if total_assistant else 0
-    # 赞踩统计
-    praise = await db.scalar(select(func.count(Message.id)).where(Message.rating == 1))
-    critic = await db.scalar(select(func.count(Message.id)).where(Message.rating == -1))
-    # 今日对话
-    today = await db.scalar(
-        select(func.count(Conversation.id)).where(
-            func.date(Conversation.created_at) == func.current_date()
-        )
-    )
     return {
         "users": user_count,
         "documents": doc_count,

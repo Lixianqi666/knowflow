@@ -178,7 +178,7 @@ async def send_message(
                 logging.getLogger(__name__).exception(f"SSE流异常: {e}")
                 await db.rollback()
                 error_event = json.dumps(
-                    {"type": "error", "data": f"服务内部错误: {e}"},
+                    {"type": "error", "data": "服务内部错误，请稍后重试"},
                     ensure_ascii=False,
                 )
                 yield f"data: {error_event}\n\n"

@@ -1,17 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import dynamic from 'next/dynamic';
 import { api } from '@/lib/api';
 import { Download, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
+import { Source } from '@/lib/store';
 
-interface Source {
-  title: string;
-  content?: string;
-  score: number;
-  chunk_id?: string;
-  document_id?: string;
-}
+const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false });
 
 interface Props {
   role: 'user' | 'assistant';
@@ -115,7 +110,7 @@ export default function MessageBubble({
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {sources.map((s, i) => {
-                    const pct = Math.round(s.score * 100);
+                    const pct = Math.round((s.score ?? 0) * 100);
                     return (
                       <div
                         key={i}

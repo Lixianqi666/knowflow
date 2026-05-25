@@ -172,38 +172,11 @@ class AgentService:
 
     async def _auto_title(self, session_id: str, agent_name: str, user_message: str) -> None:
         session = await self.db.get(AgentSession, session_id)
-        if not session or not _is_default_title(session.title):
+        if not session:
             return
-        count = await self.db.scalar(
-            select(func.count()).where(AgentMessage.session_id == session_id)
-        )
-        if count and count > 2:
-            return
-        try:
-            from litellm import completion
+        from app.services.common import auto_generate_title
 
-            kwargs = dict(
-                model=settings.LLM_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "根据用户的提问，生成 4-6 个字的简短标题，只输出标题本身，不要标点。",
-                    },
-                    {"role": "user", "content": user_message},
-                ],
-                temperature=0.1,
-                max_tokens=20,
-            )
-            if settings.LLM_API_KEY:
-                kwargs["api_key"] = settings.LLM_API_KEY
-            if settings.LLM_BASE_URL:
-                kwargs["api_base"] = settings.LLM_BASE_URL
-            resp = completion(**kwargs)
-            title = resp.choices[0].message.content.strip().strip("\"'").strip()
-            if title and len(title) <= 20:
-                session.title = title
-        except Exception as e:
-            logger.debug(f"自动标题失败: {e}")
+        await auto_generate_title(self.db, session, user_message, AgentMessage, "session_id")
 
     async def _get_history(self, session_id: str) -> list[AgentMessage]:
         result = await self.db.execute(
@@ -213,7 +186,3 @@ class AgentService:
             .limit(self.MAX_HISTORY)
         )
         return list(reversed(result.scalars().all()))
-
-
-def _is_default_title(title: str | None) -> bool:
-    return not title or title in ("新会话", "") or len(title) >= 30
