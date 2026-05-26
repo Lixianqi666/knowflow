@@ -41,18 +41,34 @@ class EmbeddingService:
         self.model = settings.EMBEDDING_MODEL
         self.api_key = settings.EMBEDDING_API_KEY or settings.LLM_API_KEY
         self.api_base = settings.EMBEDDING_BASE_URL or settings.LLM_BASE_URL or None
-        if self.api_base and not self.model.startswith("openai/"):
-            self.model = f"openai/{self.model}"
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        kwargs = dict(model=self.model, input=texts)
-        if self.api_key:
-            kwargs["api_key"] = self.api_key
-        if self.api_base:
-            kwargs["api_base"] = self.api_base
+        import httpx
+
         try:
-            response = await litellm.aembedding(**kwargs)
-            return [item["embedding"] for item in response.data]
+            if self.api_base:
+                url = f"{self.api_base.rstrip('/')}/embeddings"
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(
+                        url,
+                        json={"model": self.model, "input": texts},
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                        },
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+            else:
+                # fallback to litellm for default provider
+                import litellm
+
+                kwargs = dict(model=self.model, input=texts)
+                if self.api_key:
+                    kwargs["api_key"] = self.api_key
+                resp = await litellm.aembedding(**kwargs)
+                data = resp.model_dump()
+            return [item["embedding"] for item in data["data"]]
         except Exception as e:
             import logging
 
