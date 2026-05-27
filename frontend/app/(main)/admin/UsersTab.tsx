@@ -9,7 +9,12 @@ interface UsersTabProps {
   onActiveToggle: (u: User) => void;
 }
 
-export default function UsersTab({ users, currentUserId, onRoleToggle, onActiveToggle }: UsersTabProps) {
+export default function UsersTab({
+  users,
+  currentUserId,
+  onRoleToggle,
+  onActiveToggle,
+}: UsersTabProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
       {/* 桌面端表格 */}

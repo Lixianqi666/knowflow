@@ -95,13 +95,9 @@ export default function PermissionsTab({
                               >
                                 <div>
                                   <span className="font-medium">{u.name}</span>
-                                  <span className="text-gray-400 ml-2 text-xs">
-                                    {u.email}
-                                  </span>
+                                  <span className="text-gray-400 ml-2 text-xs">{u.email}</span>
                                 </div>
-                                {hasPerm && (
-                                  <span className="text-xs text-gray-400">已有权限</span>
-                                )}
+                                {hasPerm && <span className="text-xs text-gray-400">已有权限</span>}
                               </button>
                             );
                           })

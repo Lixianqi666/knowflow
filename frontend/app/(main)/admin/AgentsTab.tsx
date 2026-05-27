@@ -76,9 +76,7 @@ export default function AgentsTab({
                       {a.is_active ? '启用' : '停用'}
                     </span>
                   </div>
-                  {a.description && (
-                    <p className="text-xs text-gray-400 mt-0.5">{a.description}</p>
-                  )}
+                  {a.description && <p className="text-xs text-gray-400 mt-0.5">{a.description}</p>}
                   <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                     <span>top_k={a.top_k}</span>
                     <span>阈值={a.threshold}%</span>
@@ -176,9 +174,7 @@ export default function AgentsTab({
                   </button>
                 );
               })}
-              {kbOptions.length === 0 && (
-                <span className="text-xs text-gray-400">暂无知识库</span>
-              )}
+              {kbOptions.length === 0 && <span className="text-xs text-gray-400">暂无知识库</span>}
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -205,9 +201,7 @@ export default function AgentsTab({
               <input
                 type="number"
                 value={agentForm.rerank_top_k}
-                onChange={(e) =>
-                  onSetAgentForm({ ...agentForm, rerank_top_k: +e.target.value })
-                }
+                onChange={(e) => onSetAgentForm({ ...agentForm, rerank_top_k: +e.target.value })}
                 className="w-full text-sm border rounded-lg px-3 py-2 input-base"
               />
             </div>

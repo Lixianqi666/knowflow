@@ -61,7 +61,9 @@ describe('Store', () => {
   });
 
   it('removeConversation 删除对话并清除 currentConvId', () => {
-    useStore.getState().setConversations([{ id: '1', title: '对话1', created_at: '', updated_at: '' }]);
+    useStore
+      .getState()
+      .setConversations([{ id: '1', title: '对话1', created_at: '', updated_at: '' }]);
     useStore.getState().setCurrentConvId('1');
     useStore.getState().removeConversation('1');
 

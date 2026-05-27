@@ -72,9 +72,7 @@ export default function TemplatesTab({
                       {t.is_active ? '启用' : '停用'}
                     </span>
                   </div>
-                  {t.description && (
-                    <p className="text-xs text-gray-400 mt-0.5">{t.description}</p>
-                  )}
+                  {t.description && <p className="text-xs text-gray-400 mt-0.5">{t.description}</p>}
                   <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                     <span>top_k={t.top_k}</span>
                     <span>阈值={t.threshold}%</span>
@@ -135,9 +133,7 @@ export default function TemplatesTab({
             <label className="text-xs text-gray-500 mb-1 block">描述</label>
             <input
               value={templateForm.description}
-              onChange={(e) =>
-                onSetTemplateForm({ ...templateForm, description: e.target.value })
-              }
+              onChange={(e) => onSetTemplateForm({ ...templateForm, description: e.target.value })}
               className="w-full text-sm border rounded-lg px-3 py-2 input-base"
               placeholder="简短描述该场景的用途"
             />
@@ -179,9 +175,7 @@ export default function TemplatesTab({
               <input
                 type="number"
                 value={templateForm.threshold}
-                onChange={(e) =>
-                  onSetTemplateForm({ ...templateForm, threshold: +e.target.value })
-                }
+                onChange={(e) => onSetTemplateForm({ ...templateForm, threshold: +e.target.value })}
                 className="w-full text-sm border rounded-lg px-3 py-2 input-base"
               />
             </div>
