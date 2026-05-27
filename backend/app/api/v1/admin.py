@@ -54,8 +54,17 @@ async def list_all_templates(
 async def list_users(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
+    q: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ):
-    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    query = select(User)
+    if q and q.strip():
+        pattern = f"%{q.strip()}%"
+        query = query.where(User.name.ilike(pattern) | User.email.ilike(pattern))
+    result = await db.execute(
+        query.order_by(User.created_at.desc()).offset(offset).limit(limit)
+    )
     users = result.scalars().all()
     return [
         {

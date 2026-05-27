@@ -166,7 +166,7 @@ async def upload_file(
     index_document_task.delay(str(doc.id))
 
     logger.info(f"文档上传成功: {doc.title} (id={doc.id}, user={user.id})")
-    await cache_delete(f"cache:doclist:{user.id}:*")
+    await cache_delete(f"doclist:{user.id}")
     return {"id": str(doc.id), "title": doc.title, "status": "processing"}
 
 
@@ -178,25 +178,39 @@ async def list_documents(
     limit: int = 20,
     offset: int = 0,
 ):
-    base = select(Document)
-    if kb_id:
-        base = base.where(Document.kb_id == kb_id)
-    # 非管理员只能看有权限的文档
-    if user.role != "admin":
-        base = base.where(
-            Document.id.in_(
-                select(DocumentPermission.document_id).where(DocumentPermission.user_id == user.id)
+    if user.role == "admin":
+        base = select(Document)
+        if kb_id:
+            base = base.where(Document.kb_id == kb_id)
+    else:
+        # JOIN 替代 IN 子查询，性能更优
+        base = (
+            select(Document)
+            .outerjoin(
+                DocumentPermission,
+                (DocumentPermission.document_id == Document.id)
+                & (DocumentPermission.user_id == user.id),
             )
-            | Document.source_id.in_(
-                select(SourcePermission.source_id).where(SourcePermission.user_id == user.id)
+            .outerjoin(
+                SourcePermission,
+                (SourcePermission.source_id == Document.source_id)
+                & (SourcePermission.user_id == user.id),
             )
+            .where(
+                (DocumentPermission.user_id.isnot(None)) | (SourcePermission.user_id.isnot(None))
+            )
+            .distinct()
         )
+        if kb_id:
+            base = base.where(Document.kb_id == kb_id)
+
     cache_key = f"cache:doclist:{user.id}:{kb_id}:{limit}:{offset}"
     cached = await cache_get(cache_key)
     if cached:
         return cached
 
-    total = await db.scalar(select(func.count()).select_from(base.subquery()))
+    count_query = select(func.count()).select_from(base.subquery())
+    total = await db.scalar(count_query)
     result = await db.execute(base.order_by(Document.created_at.desc()).offset(offset).limit(limit))
     docs = result.scalars().all()
     data = {
@@ -212,7 +226,7 @@ async def list_documents(
             for d in docs
         ],
     }
-    await cache_set(cache_key, data, ttl=30)
+    await cache_set(cache_key, data, ttl=30, tags=[f"doclist:{user.id}"])
     return data
 
 
@@ -222,18 +236,30 @@ async def document_stats(
     db: AsyncSession = Depends(get_db),
     kb_id: str | None = None,
 ):
-    base = select(Document.status)
-    if kb_id:
-        base = base.where(Document.kb_id == kb_id)
-    if user.role != "admin":
-        base = base.where(
-            Document.id.in_(
-                select(DocumentPermission.document_id).where(DocumentPermission.user_id == user.id)
+    if user.role == "admin":
+        base = select(Document.status)
+        if kb_id:
+            base = base.where(Document.kb_id == kb_id)
+    else:
+        base = (
+            select(Document.status)
+            .outerjoin(
+                DocumentPermission,
+                (DocumentPermission.document_id == Document.id)
+                & (DocumentPermission.user_id == user.id),
             )
-            | Document.source_id.in_(
-                select(SourcePermission.source_id).where(SourcePermission.user_id == user.id)
+            .outerjoin(
+                SourcePermission,
+                (SourcePermission.source_id == Document.source_id)
+                & (SourcePermission.user_id == user.id),
             )
+            .where(
+                (DocumentPermission.user_id.isnot(None)) | (SourcePermission.user_id.isnot(None))
+            )
+            .distinct()
         )
+        if kb_id:
+            base = base.where(Document.kb_id == kb_id)
 
     stats = await db.execute(
         select(
@@ -291,7 +317,7 @@ async def delete_document(
             "deleted_by": str(user.id),
         },
     )
-    await cache_delete(f"cache:doclist:{user.id}:*")
+    await cache_delete(f"doclist:{user.id}")
     return {"detail": "已删除"}
 
 

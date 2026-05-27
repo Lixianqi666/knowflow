@@ -246,6 +246,8 @@ async def list_sessions(
     agent_id: UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = 20,
+    offset: int = 0,
 ):
     agent = await db.get(Agent, agent_id)
     if not agent or not agent.is_active:
@@ -254,6 +256,8 @@ async def list_sessions(
         select(AgentSession)
         .where(AgentSession.agent_id == agent_id, AgentSession.user_id == user.id)
         .order_by(AgentSession.updated_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     return [
         {
@@ -321,6 +325,8 @@ async def get_messages(
     session_id: UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = 100,
+    offset: int = 0,
 ):
     session = await db.get(AgentSession, session_id)
     if not session or session.user_id != user.id:
@@ -329,6 +335,8 @@ async def get_messages(
         select(AgentMessage)
         .where(AgentMessage.session_id == session_id)
         .order_by(AgentMessage.created_at)
+        .offset(offset)
+        .limit(limit)
     )
     return [
         {

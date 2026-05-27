@@ -234,7 +234,16 @@ export const useStore = create<Store>((set, get) => ({
     }),
   setMessages: (messages) => set({ messages: asArray<Message>(messages) }),
   setCachedMessages: (convId, msgs) =>
-    set((s) => ({ messagesCache: { ...s.messagesCache, [convId]: asArray<Message>(msgs) } })),
+    set((s) => {
+      const cache = { ...s.messagesCache, [convId]: asArray<Message>(msgs) };
+      const keys = Object.keys(cache);
+      // LRU：保留最近 50 个对话的消息缓存
+      if (keys.length > 50) {
+        const oldest = keys[0];
+        delete cache[oldest];
+      }
+      return { messagesCache: cache };
+    }),
 
   sources: [],
   setSources: (sources) => set({ sources: asArray(sources) }),
