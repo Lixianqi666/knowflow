@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_admin
+from app.core.security import get_current_user
 from app.database import get_db
 from app.models.prompt_template import PromptTemplate
 from app.models.user import User
@@ -37,7 +38,10 @@ class TemplateUpdate(BaseModel):
 
 
 @router.get("/")
-async def list_templates(db: AsyncSession = Depends(get_db)):
+async def list_templates(
+    _: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(PromptTemplate)
         .where(PromptTemplate.is_active.is_(True))
@@ -57,7 +61,11 @@ async def list_templates(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{tmpl_id}")
-async def get_template(tmpl_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_template(
+    tmpl_id: UUID,
+    _: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     t = await db.get(PromptTemplate, tmpl_id)
     if not t or not t.is_active:
         raise HTTPException(status_code=404, detail="模板不存在")

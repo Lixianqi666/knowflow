@@ -33,15 +33,15 @@ class MCPRequest(BaseModel):
 async def mcp_call(req: MCPRequest, user: User = Depends(get_current_user)):
     """调用 MCP 工具"""
     if req.tool == "search":
-        return await _search(req.arguments, user.id)
+        return await _search(req.arguments, user)
     elif req.tool == "get_document":
-        return await _get_document(req.arguments, user.id)
+        return await _get_document(req.arguments, user)
     elif req.tool == "list_knowledge_bases":
         return await _list_kbs()
     raise HTTPException(400, f"未知工具: {req.tool}")
 
 
-async def _search(args: dict, user_id: str):
+async def _search(args: dict, user: User):
     from app.database import async_session
     from app.services.retrieval import RetrievalService
 
@@ -51,7 +51,9 @@ async def _search(args: dict, user_id: str):
 
     async with async_session() as db:
         svc = RetrievalService(db)
-        chunks = await svc.search(query, user_id, is_admin=True, top_k=top_k, kb_id=kb_id)
+        chunks = await svc.search(
+            query, str(user.id), is_admin=(user.role == "admin"), top_k=top_k, kb_id=kb_id
+        )
         return [
             {
                 "title": c.document_title,
@@ -63,15 +65,26 @@ async def _search(args: dict, user_id: str):
         ]
 
 
-async def _get_document(args: dict, user_id: str):
+async def _get_document(args: dict, user: User):
     from app.database import async_session
     from app.models.document import Document
+    from app.models.permission import DocumentPermission
+    from sqlalchemy import select
 
     doc_id = args.get("document_id", "")
     async with async_session() as db:
         doc = await db.get(Document, doc_id)
         if not doc:
             raise HTTPException(404, "文档不存在")
+        if user.role != "admin":
+            perm = await db.execute(
+                select(DocumentPermission).where(
+                    DocumentPermission.document_id == doc_id,
+                    DocumentPermission.user_id == user.id,
+                )
+            )
+            if not perm.scalar_one_or_none():
+                raise HTTPException(403, "无权限访问该文档")
         return {"title": doc.title, "content": doc.content[:3000]}
 
 

@@ -213,4 +213,3 @@ cd frontend && npm test
 ## 文档
 
 - [部署指南](./docs/DEPLOY.md) — 生产环境部署、SSL、备份、升级
-- [代码 Wiki](./docs/CODE_WIKI.md) — 完整代码结构与架构文档
