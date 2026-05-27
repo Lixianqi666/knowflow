@@ -15,6 +15,8 @@ class ConversationUpdate(BaseModel):
 class ConversationOut(BaseModel):
     id: UUID
     title: str | None
+    is_pinned: bool = False
+    pinned_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

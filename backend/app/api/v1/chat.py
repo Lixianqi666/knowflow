@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ratelimit import chat_rate_limit
@@ -52,6 +52,24 @@ async def update_conversation(
     return conv
 
 
+@router.patch("/conversations/{conv_id}/pin", response_model=ConversationOut)
+async def toggle_pin(
+    conv_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """切换对话置顶状态"""
+    conv = await db.get(Conversation, conv_id)
+    if not conv or conv.user_id != user.id:
+        raise HTTPException(status_code=404, detail="对话不存在")
+    from datetime import datetime, timezone
+
+    conv.is_pinned = not conv.is_pinned
+    conv.pinned_at = datetime.now(timezone.utc) if conv.is_pinned else None
+    await db.flush()
+    return conv
+
+
 @router.get("/conversations", response_model=list[ConversationOut])
 async def list_conversations(
     user: User = Depends(get_current_user),
@@ -60,7 +78,11 @@ async def list_conversations(
     result = await db.execute(
         select(Conversation)
         .where(Conversation.user_id == user.id)
-        .order_by(Conversation.updated_at.desc())
+        .order_by(
+            Conversation.is_pinned.desc(),
+            case((Conversation.is_pinned.is_(True), Conversation.pinned_at), else_=None).desc(),
+            Conversation.updated_at.desc(),
+        )
     )
     return result.scalars().all()
 

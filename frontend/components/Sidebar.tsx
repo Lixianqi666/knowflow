@@ -28,10 +28,17 @@ function groupByDate(convs: Conversation[]) {
   const yesterday = new Date(today.getTime() - 86400000);
   const weekAgo = new Date(today.getTime() - 7 * 86400000);
 
-  const groups: { label: string; items: Conversation[] }[] = [];
-  const map: Record<string, Conversation[]> = { today: [], yesterday: [], week: [], older: [] };
-
+  const pinned: Conversation[] = [];
+  const unpinned: Conversation[] = [];
   for (const c of convs) {
+    (c.is_pinned ? pinned : unpinned).push(c);
+  }
+
+  const groups: { label: string; items: Conversation[] }[] = [];
+  if (pinned.length) groups.push({ label: '置顶', items: pinned });
+
+  const map: Record<string, Conversation[]> = { today: [], yesterday: [], week: [], older: [] };
+  for (const c of unpinned) {
     const d = new Date(c.created_at);
     if (d >= today) map.today.push(c);
     else if (d >= yesterday) map.yesterday.push(c);
@@ -134,6 +141,22 @@ export default function Sidebar() {
       toast('删除失败', 'error');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleTogglePin = async (convId: string) => {
+    setContextMenuId(null);
+    setMenuPos(null);
+    try {
+      const res = await api.patch<any>(`/chat/conversations/${convId}/pin`);
+      useStore.setState((s) => ({
+        conversations: s.conversations.map((c) =>
+          c.id === convId ? { ...c, is_pinned: res.is_pinned, pinned_at: res.pinned_at } : c,
+        ),
+      }));
+      toast(res.is_pinned ? '已置顶' : '已取消置顶', 'success');
+    } catch {
+      toast('操作失败', 'error');
     }
   };
 
@@ -344,7 +367,12 @@ export default function Sidebar() {
                                 : 'transparent',
                           }}
                         >
-                          <span className="truncate block">{conv.title || '新对话'}</span>
+                          <span className="flex items-center gap-1.5">
+                            {conv.is_pinned && (
+                              <Pin className="w-3 h-3 shrink-0" style={{ color: 'var(--c-primary)' }} />
+                            )}
+                            <span className="truncate">{conv.title || '新对话'}</span>
+                          </span>
                         </button>
                       )}
 
@@ -483,24 +511,26 @@ export default function Sidebar() {
             <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--c-text-tertiary)' }} />
             重命名
           </button>
-          <button
-            onClick={() => {
-              setContextMenuId(null);
-              setMenuPos(null);
-              toast('置顶功能开发中', 'info');
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm border-none cursor-pointer transition-colors"
-            style={{ color: 'var(--c-text)', background: 'none' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--c-bg)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'none';
-            }}
-          >
-            <Pin className="w-3.5 h-3.5" style={{ color: 'var(--c-text-tertiary)' }} />
-            置顶
-          </button>
+          {(() => {
+            const targetConv = conversations.find((c) => c.id === contextMenuId);
+            const isPinned = targetConv?.is_pinned;
+            return (
+              <button
+                onClick={() => handleTogglePin(contextMenuId!)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm border-none cursor-pointer transition-colors"
+                style={{ color: 'var(--c-text)', background: 'none' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--c-bg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'none';
+                }}
+              >
+                <Pin className="w-3.5 h-3.5" style={{ color: isPinned ? 'var(--c-primary)' : 'var(--c-text-tertiary)' }} />
+                {isPinned ? '取消置顶' : '置顶'}
+              </button>
+            );
+          })()}
           <div className="my-1 mx-2 border-t" style={{ borderColor: 'var(--c-border)' }} />
           <button
             onClick={() => {
