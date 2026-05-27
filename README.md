@@ -204,5 +204,4 @@ cd frontend && npm test
 
 ## 文档
 
-- [用户手册](./docs/USER_GUIDE.md) — 功能使用说明
-- [部署指南](./DEPLOY.md) — 生产环境部署、SSL、备份、升级
+- [部署指南](./docs/DEPLOY.md) — 生产环境部署、SSL、备份、升级

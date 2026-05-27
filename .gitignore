@@ -7,13 +7,16 @@ __pycache__/
 .vscode/
 .idea/
 backend/uploads/
+backend/.venv/
 hf_cache/
 *.egg-info/
 dist/
+build/
 .pytest_cache/
+.coverage
+htmlcov/
 *.log
 测试文件/
-.gitignore
 CLAUDE.md
 CODE_WIKI.md
 .claude
