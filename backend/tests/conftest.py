@@ -100,10 +100,19 @@ async def client():
     """session 级别的测试客户端，建表 + dependency override"""
     global _session_factory
     import app.database as db_mod
+    import app.models.agent  # noqa
+    import app.models.agent_session  # noqa
+    import app.models.agent_trace  # noqa
+    import app.models.audit_log  # noqa
     import app.models.conversation  # noqa
     import app.models.document  # noqa
+    import app.models.feedback  # noqa
+    import app.models.knowledge_base  # noqa
     import app.models.permission  # noqa
+    import app.models.prompt_template  # noqa
+    import app.models.reimbursement  # noqa
     import app.models.user  # noqa
+    import app.models.webhook  # noqa
 
     engine = create_async_engine(settings.DATABASE_URL, echo=False)
     _session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -125,6 +134,12 @@ async def client():
 
     app.dependency_overrides.clear()
     await engine.dispose()
+
+
+@pytest_asyncio.fixture(scope="session")
+async def db_session_factory(client):
+    """暴露 session 工厂给需要直接操作数据库的测试"""
+    return _session_factory
 
 
 @pytest_asyncio.fixture(scope="session")

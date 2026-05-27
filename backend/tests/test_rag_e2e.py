@@ -5,13 +5,16 @@ import uuid
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-import tests.conftest as conftest_mod
 
-
-async def _inject_chunks(doc_id: str, content: str = "请假流程：员工需提前3天提交申请"):
+async def _inject_chunks(
+    session_factory: async_sessionmaker,
+    doc_id: str,
+    content: str = "请假流程：员工需提前3天提交申请",
+):
     """手动注入 document_chunks，跳过 Celery 索引任务"""
-    async with conftest_mod._session_factory() as session:
+    async with session_factory() as session:
         chunk_id = str(uuid.uuid4())
         await session.execute(
             text("""
@@ -36,7 +39,7 @@ async def _inject_chunks(doc_id: str, content: str = "请假流程：员工需�
 
 
 @pytest.mark.asyncio
-async def test_rag_chat_returns_sources(client: AsyncClient, auth_headers: dict):
+async def test_rag_chat_returns_sources(client: AsyncClient, auth_headers: dict, db_session_factory):
     """上传文档 → 注入 chunk → 发送消息 → 验证 sources 事件"""
     # 1. 上传文档
     resp = await client.post(
@@ -48,7 +51,7 @@ async def test_rag_chat_returns_sources(client: AsyncClient, auth_headers: dict)
     doc_id = resp.json()["id"]
 
     # 2. 手动注入 chunk（跳过 Celery）
-    await _inject_chunks(doc_id)
+    await _inject_chunks(db_session_factory, doc_id)
 
     # 3. 创建对话并发送消息
     conv = await client.post(
