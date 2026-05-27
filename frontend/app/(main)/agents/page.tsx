@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useStore } from '@/lib/store';
+import { useStore, Agent } from '@/lib/store';
 import { api } from '@/lib/api';
 
 export default function AgentsPage() {
@@ -22,7 +22,7 @@ export default function AgentsPage() {
     if (useStore.getState().agents.length) return;
     setLoading(true);
     try {
-      const items = await api.get<any[]>('/agents/');
+      const items = await api.get<Agent[]>('/agents/');
       setAgents(Array.isArray(items) ? items : []);
     } catch (e) {
       console.error('加载 Agent 列表失败:', e);
@@ -34,7 +34,7 @@ export default function AgentsPage() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      const agent = await api.post<any>('/agents/', {
+      const agent = await api.post<Agent>('/agents/', {
         name: form.name.trim(),
         description: form.description.trim(),
         system_prompt: form.system_prompt.trim(),

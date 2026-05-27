@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useStore, Message } from '@/lib/store';
+import { useStore, Message, AgentSessionItem } from '@/lib/store';
 import { api } from '@/lib/api';
 import MessageBubble from '@/components/MessageBubble';
 import { toast } from '@/components/Toast';
@@ -125,9 +125,9 @@ export default function AgentChatPage() {
               if (event.type === 'token') {
                 updateLastAgentMessage(event.data);
               } else if (event.type === 'done') {
-                const msgs = await api.get<any[]>(`/agents/sessions/${sessionId}/messages`);
+                const msgs = await api.get<Message[]>(`/agents/sessions/${sessionId}/messages`);
                 setAgentMessages(Array.isArray(msgs) ? msgs : []);
-                const s = await api.get<any>(`/agents/sessions/${sessionId}`);
+                const s = await api.get<AgentSessionItem>(`/agents/sessions/${sessionId}`);
                 setSession(s);
                 setTitle(s.title);
               } else if (event.type === 'error') {

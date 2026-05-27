@@ -83,7 +83,9 @@ export default function AdminPage() {
     try {
       const ts = await api.get<Template[]>('/admin/prompt-templates');
       setTemplates(ts);
-    } catch {}
+    } catch (e) {
+      console.error('加载场景模板失败:', e);
+    }
   };
 
   const loadAuditLogs = async () => {
@@ -91,7 +93,9 @@ export default function AdminPage() {
     try {
       const logs = await api.get<AuditLogItem[]>('/audit/logs?limit=200');
       setAuditLogs(logs);
-    } catch {}
+    } catch (e) {
+      console.error('加载审计日志失败:', e);
+    }
     setAuditLoading(false);
   };
 
@@ -99,14 +103,18 @@ export default function AdminPage() {
     try {
       const items = await api.get<AgentItem[]>('/agents/admin-list');
       setAgentItems(items);
-    } catch {}
+    } catch (e) {
+      console.error('加载 Agent 列表失败:', e);
+    }
   };
 
   const loadKbOptions = async () => {
     try {
       const kbs = await api.get<KnowledgeBaseOption[]>('/knowledge-bases');
       setKbOptions(kbs);
-    } catch {}
+    } catch (e) {
+      console.error('加载知识库列表失败:', e);
+    }
   };
 
   const loadData = async () => {
@@ -260,7 +268,7 @@ export default function AdminPage() {
 
   const handleOpenTemplateEdit = async (t: Template) => {
     try {
-      const detail = await api.get<any>(`/prompt-templates/${t.id}`);
+      const detail = await api.get<Template>(`/prompt-templates/${t.id}`);
       setTemplateForm({
         id: t.id,
         name: detail.name,
@@ -271,7 +279,9 @@ export default function AdminPage() {
         threshold: detail.threshold,
         rerank_top_k: detail.rerank_top_k,
       });
-    } catch {}
+    } catch (e) {
+      console.error('加载模板详情失败:', e);
+    }
   };
 
   const handleToggleTemplateActive = async (t: Template) => {
@@ -310,7 +320,7 @@ export default function AdminPage() {
 
   const handleOpenAgentEdit = async (a: AgentItem) => {
     try {
-      const detail = await api.get<any>(`/agents/${a.id}`);
+      const detail = await api.get<AgentItem>(`/agents/${a.id}`);
       setAgentForm({
         id: a.id,
         name: detail.name,
@@ -321,7 +331,9 @@ export default function AdminPage() {
         threshold: detail.threshold,
         rerank_top_k: detail.rerank_top_k,
       });
-    } catch {}
+    } catch (e) {
+      console.error('加载 Agent 详情失败:', e);
+    }
   };
 
   const handleToggleAgentActive = async (a: AgentItem) => {

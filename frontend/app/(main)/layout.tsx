@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useStore } from '@/lib/store';
+import { useStore, Conversation } from '@/lib/store';
 import { api } from '@/lib/api';
 import Sidebar from '@/components/Sidebar';
 
@@ -25,7 +25,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     if (!token) return;
     if (conversations.length === 0) {
       api
-        .get<any[]>('/chat/conversations')
+        .get<Conversation[]>('/chat/conversations')
         .then((items) => setConversations(Array.isArray(items) ? items : []))
         .catch((e) => console.error('加载对话列表失败', e));
     }
