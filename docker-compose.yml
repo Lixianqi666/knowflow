@@ -186,6 +186,28 @@ services:
           cpus: '0.2'
           memory: 256M
 
+  db-backup:
+    image: postgres:16-alpine
+    volumes:
+      - ./monitoring/backup.sh:/usr/local/bin/backup.sh:ro
+      - backups:/backups
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-knowflow}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+    entrypoint: /bin/sh
+    command: >
+      -c 'echo "0 2 * * * /usr/local/bin/backup.sh" | crontab - && crond -f -l 2'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 128m
+    cpus: '0.1'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 128M
+
 volumes:
   pgdata:
   redisdata:
@@ -194,3 +216,4 @@ volumes:
   nginx_ssl:
   promdata:
   grafana_data:
+  backups:
