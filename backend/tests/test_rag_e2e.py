@@ -34,6 +34,11 @@ async def _inject_chunks(
                 "tsv": content,
             },
         )
+        # 同步将文档状态改为 indexed，否则检索会跳过
+        await session.execute(
+            text("UPDATE documents SET status = 'indexed' WHERE id = :did"),
+            {"did": doc_id},
+        )
         await session.commit()
         return chunk_id
 
