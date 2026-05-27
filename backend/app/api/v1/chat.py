@@ -25,6 +25,53 @@ from app.services.chat import ChatService
 router = APIRouter(prefix="/chat", tags=["对话"])
 
 
+@router.get("/search")
+async def global_search(
+    q: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """全局搜索：按标题匹配对话和文档"""
+    if not q.strip():
+        return {"conversations": [], "documents": []}
+
+    pattern = f"%{q.strip()}%"
+
+    # 搜索对话
+    conv_result = await db.execute(
+        select(Conversation)
+        .where(Conversation.user_id == user.id, Conversation.title.ilike(pattern))
+        .order_by(Conversation.updated_at.desc())
+        .limit(20)
+    )
+    conversations = [
+        {"id": str(c.id), "title": c.title, "updated_at": str(c.updated_at)}
+        for c in conv_result.scalars().all()
+    ]
+
+    # 搜索文档（非管理员只搜有权限的）
+    from app.models.document import Document
+    from app.models.permission import DocumentPermission, SourcePermission
+
+    doc_query = select(Document).where(Document.title.ilike(pattern))
+    if user.role != "admin":
+        doc_query = doc_query.where(
+            Document.id.in_(
+                select(DocumentPermission.document_id).where(DocumentPermission.user_id == user.id)
+            )
+            | Document.source_id.in_(
+                select(SourcePermission.source_id).where(SourcePermission.user_id == user.id)
+            )
+        )
+    doc_result = await db.execute(doc_query.order_by(Document.created_at.desc()).limit(20))
+    documents = [
+        {"id": str(d.id), "title": d.title, "status": d.status, "created_at": str(d.created_at)}
+        for d in doc_result.scalars().all()
+    ]
+
+    return {"conversations": conversations, "documents": documents}
+
+
 @router.post("/conversations", response_model=ConversationOut)
 async def create_conversation(
     data: ConversationCreate,

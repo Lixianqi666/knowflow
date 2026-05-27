@@ -69,6 +69,18 @@ export default function Sidebar() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
+  // 全局搜索
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{
+    conversations: { id: string; title: string; updated_at: string }[];
+    documents: { id: string; title: string; status: string; created_at: string }[];
+  } | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimerRef = useState<{ current: ReturnType<typeof setTimeout> | null }>(() => ({
+    current: null,
+  }))[0];
+
   useEffect(() => {
     setMobileOpen(false);
   }, [currentConvId]);
@@ -95,6 +107,11 @@ export default function Sidebar() {
         setCurrentConvId(null);
         router.push('/chat');
         closeMobile();
+      }
+      // ⌘K 快捷键：全局搜索
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        openSearch();
       }
     };
     document.addEventListener('keydown', handler);
@@ -158,6 +175,40 @@ export default function Sidebar() {
     } catch {
       toast('操作失败', 'error');
     }
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!value.trim()) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get<any>(`/chat/search?q=${encodeURIComponent(value.trim())}`);
+        setSearchResults(res);
+      } catch {
+        setSearchResults(null);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+  };
+
+  const openSearch = () => {
+    setSearchOpen(true);
+    setSearchQuery('');
+    setSearchResults(null);
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults(null);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
   };
 
   const startRename = (conv: Conversation) => {
@@ -236,12 +287,10 @@ export default function Sidebar() {
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => {
-                /* TODO: 全局搜索 */
-              }}
+              onClick={openSearch}
               className="p-1.5 rounded-lg transition-colors border-none cursor-pointer"
               style={{ color: 'var(--c-text-tertiary)', background: 'none' }}
-              title="搜索"
+              title="搜索 (⌘K)"
             >
               <Search className="w-4 h-4" />
             </button>
@@ -550,6 +599,125 @@ export default function Sidebar() {
             删除
           </button>
         </div>
+      )}
+
+      {/* 全局搜索面板 */}
+      {searchOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[90]"
+            style={{ background: 'rgba(0,0,0,.3)', backdropFilter: 'blur(2px)' }}
+            onClick={closeSearch}
+          />
+          <div
+            className="fixed z-[100] top-[15%] left-1/2 -translate-x-1/2 w-[90vw] max-w-lg rounded-2xl overflow-hidden"
+            style={{
+              background: '#fff',
+              boxShadow: '0 20px 60px rgba(0,0,0,.2)',
+              border: '1px solid var(--c-border)',
+            }}
+          >
+            <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--c-border)' }}>
+              <Search className="w-4 h-4 shrink-0" style={{ color: 'var(--c-text-tertiary)' }} />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Escape' && closeSearch()}
+                placeholder="搜索对话和文档..."
+                className="flex-1 text-sm outline-none border-none"
+                style={{ color: 'var(--c-text)', background: 'transparent' }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => handleSearch('')}
+                  className="p-1 rounded-md border-none cursor-pointer"
+                  style={{ color: 'var(--c-text-tertiary)', background: 'none' }}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              {searchLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--c-border)', borderTopColor: 'var(--c-primary)' }} />
+                </div>
+              ) : searchResults ? (
+                <>
+                  {searchResults.conversations.length === 0 && searchResults.documents.length === 0 ? (
+                    <p className="text-sm text-center py-8" style={{ color: 'var(--c-text-tertiary)' }}>
+                      未找到匹配结果
+                    </p>
+                  ) : (
+                    <>
+                      {searchResults.conversations.length > 0 && (
+                        <div>
+                          <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--c-text-tertiary)' }}>
+                            对话
+                          </div>
+                          {searchResults.conversations.map((c) => (
+                            <button
+                              key={c.id}
+                              onClick={() => {
+                                setCurrentConvId(c.id);
+                                router.push(`/chat/${c.id}`);
+                                closeSearch();
+                              }}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left border-none cursor-pointer transition-colors"
+                              style={{ color: 'var(--c-text)', background: 'none' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--c-bg)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                            >
+                              <MessageSquare className="w-4 h-4 shrink-0" style={{ color: 'var(--c-text-tertiary)' }} />
+                              <span className="truncate">{c.title || '新对话'}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults.documents.length > 0 && (
+                        <div>
+                          <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--c-text-tertiary)', borderTop: '1px solid var(--c-border)' }}>
+                            文档
+                          </div>
+                          {searchResults.documents.map((d) => (
+                            <button
+                              key={d.id}
+                              onClick={() => {
+                                router.push(`/documents`);
+                                closeSearch();
+                              }}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left border-none cursor-pointer transition-colors"
+                              style={{ color: 'var(--c-text)', background: 'none' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--c-bg)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                            >
+                              <FileText className="w-4 h-4 shrink-0" style={{ color: 'var(--c-text-tertiary)' }} />
+                              <span className="truncate">{d.title}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : searchQuery ? (
+                <p className="text-sm text-center py-8" style={{ color: 'var(--c-text-tertiary)' }}>
+                  输入关键词开始搜索
+                </p>
+              ) : (
+                <p className="text-sm text-center py-8" style={{ color: 'var(--c-text-tertiary)' }}>
+                  搜索对话标题和文档标题
+                </p>
+              )}
+            </div>
+            <div className="px-4 py-2 text-[10px]" style={{ color: 'var(--c-text-tertiary)', borderTop: '1px solid var(--c-border)' }}>
+              <kbd className="px-1 py-0.5 rounded text-[10px]" style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}>⌘K</kbd> 打开搜索
+              <span className="mx-2">·</span>
+              <kbd className="px-1 py-0.5 rounded text-[10px]" style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}>Esc</kbd> 关闭
+            </div>
+          </div>
+        </>
       )}
 
       <ConfirmDialog
