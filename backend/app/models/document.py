@@ -35,6 +35,7 @@ class Document(Base):
     )
     external_id = Column(String(255))
     title = Column(String(500), nullable=False)
+    stored_filename = Column(String(500), nullable=True)
     content = Column(Text)
     content_hash = Column(String(64), index=True)
     metadata_ = Column("metadata", JSONB, default=dict)

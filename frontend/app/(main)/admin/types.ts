@@ -38,9 +38,12 @@ export interface Template {
   id: string;
   name: string;
   description: string;
+  context_prompt: string;
+  no_context_prompt: string;
   is_active: boolean;
   top_k: number;
   threshold: number;
+  rerank_top_k: number;
 }
 
 export interface AuditLogItem {

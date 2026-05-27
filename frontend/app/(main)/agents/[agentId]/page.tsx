@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useStore } from '@/lib/store';
+import { useStore, Agent, AgentSessionItem } from '@/lib/store';
 import { api } from '@/lib/api';
 import { toast } from '@/components/Toast';
 
@@ -11,7 +11,7 @@ export default function AgentDetailPage() {
   const params = useParams();
   const agentId = params.agentId as string;
   const { token, agentSessions, setAgentSessions, setCurrentAgentId } = useStore();
-  const [agent, setAgent] = useState<any>(null);
+  const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
@@ -24,8 +24,8 @@ export default function AgentDetailPage() {
     setLoading(true);
     try {
       const [a, sessions] = await Promise.all([
-        api.get<any>(`/agents/${agentId}`),
-        api.get<any[]>(`/agents/${agentId}/sessions`),
+        api.get<Agent>(`/agents/${agentId}`),
+        api.get<AgentSessionItem[]>(`/agents/${agentId}/sessions`),
       ]);
       setAgent(a);
       setAgentSessions(Array.isArray(sessions) ? sessions : []);
@@ -39,7 +39,7 @@ export default function AgentDetailPage() {
   const createSession = async () => {
     setCreating(true);
     try {
-      const session = await api.post<any>(`/agents/${agentId}/sessions`, { title: '新会话' });
+      const session = await api.post<AgentSessionItem>(`/agents/${agentId}/sessions`, { title: '新会话' });
       setCreating(false);
       router.push(`/agents/sessions/${session.id}`);
     } catch {
