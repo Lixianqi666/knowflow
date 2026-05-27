@@ -67,7 +67,7 @@ docker compose run --rm certbot certonly --webroot \
   -d your-domain.com
 
 # 3. 用生产 Compose 文件重启（启用 HTTPS）
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml -f server/docker-compose.prod.yml up -d
 ```
 
 ### 资源规划
