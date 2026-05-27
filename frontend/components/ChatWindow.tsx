@@ -55,6 +55,7 @@ export default function ChatWindow() {
   const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const justFinishedStreaming = useRef(false);
+  const sendingRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,7 +66,7 @@ export default function ChatWindow() {
       setMessages([]);
       return;
     }
-    if (streaming) return;
+    if (streaming || sendingRef.current) return;
 
     // 流式刚结束时跳过 API 重新拉取，避免覆盖刚收到的消息
     if (justFinishedStreaming.current) {
@@ -109,8 +110,10 @@ export default function ChatWindow() {
     addMessage({ role: 'assistant', content: '' });
     setSources([]);
     setChatError(null);
+    setLoadingMessages(false);
     setStreaming(true);
     setWaitingFirstToken(true);
+    sendingRef.current = true;
 
     try {
       let convId = currentConvId;
@@ -159,6 +162,7 @@ export default function ChatWindow() {
       if (err.name !== 'AbortError') setChatError(err.message);
     } finally {
       justFinishedStreaming.current = true;
+      sendingRef.current = false;
       setStreaming(false);
       setWaitingFirstToken(false);
       abortRef.current = null;
@@ -186,7 +190,55 @@ export default function ChatWindow() {
     <div className="flex flex-col h-screen" style={{ background: 'var(--c-bg)' }}>
       <div className="flex-1 overflow-y-auto px-4 md:px-6">
         <div className="max-w-3xl mx-auto py-6">
-          {messages.length === 0 && !loadingMessages ? (
+          {messages.length > 0 ? (
+            <>
+              {messages.map((msg, i) => (
+                <MessageBubble
+                  key={msg.id || i}
+                  role={msg.role}
+                  content={msg.content}
+                  sources={
+                    msg.role === 'assistant' && i === messages.length - 1 && sources.length > 0
+                      ? sources
+                      : msg.sources
+                  }
+                  msgId={msg.id}
+                  rating={msg.rating}
+                  onSourceClick={(d, c) => setActiveSource({ documentId: d, chunkId: c })}
+                  onRate={handleRate}
+                />
+              ))}
+              {waitingFirstToken && (
+                <div className="flex items-center gap-3 px-4 py-3 mb-4 animate-fade-in">
+                  <div className="thinking-dots">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <span className="text-sm" style={{ color: 'var(--c-text-tertiary)' }}>
+                    正在检索文档并生成回答...
+                  </span>
+                </div>
+              )}
+            </>
+          ) : loadingMessages ? (
+            <div className="space-y-6 py-8 px-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'} animate-fade-in`}
+                  style={{ animationDelay: `${i * 100}ms` }}
+                >
+                  <div
+                    className={`${i % 2 === 0 ? 'w-[60%]' : 'w-[75%]'} rounded-2xl px-4 py-3 ${i % 2 === 0 ? 'bg-blue-100' : 'bg-white border'}`}
+                  >
+                    <div className="skeleton h-4 mb-2" style={{ width: `${70 + (i % 3) * 10}%` }} />
+                    <div className="skeleton h-4" style={{ width: `${50 + (i % 2) * 20}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
               <div
                 className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
@@ -233,54 +285,6 @@ export default function ChatWindow() {
                 ))}
               </div>
             </div>
-          ) : loadingMessages ? (
-            <div className="space-y-6 py-8 px-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'} animate-fade-in`}
-                  style={{ animationDelay: `${i * 100}ms` }}
-                >
-                  <div
-                    className={`${i % 2 === 0 ? 'w-[60%]' : 'w-[75%]'} rounded-2xl px-4 py-3 ${i % 2 === 0 ? 'bg-blue-100' : 'bg-white border'}`}
-                  >
-                    <div className="skeleton h-4 mb-2" style={{ width: `${70 + (i % 3) * 10}%` }} />
-                    <div className="skeleton h-4" style={{ width: `${50 + (i % 2) * 20}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              {messages.map((msg, i) => (
-                <MessageBubble
-                  key={msg.id || i}
-                  role={msg.role}
-                  content={msg.content}
-                  sources={
-                    msg.role === 'assistant' && i === messages.length - 1 && sources.length > 0
-                      ? sources
-                      : msg.sources
-                  }
-                  msgId={msg.id}
-                  rating={msg.rating}
-                  onSourceClick={(d, c) => setActiveSource({ documentId: d, chunkId: c })}
-                  onRate={handleRate}
-                />
-              ))}
-              {waitingFirstToken && (
-                <div className="flex items-center gap-3 px-4 py-3 mb-4 animate-fade-in">
-                  <div className="thinking-dots">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                  <span className="text-sm" style={{ color: 'var(--c-text-tertiary)' }}>
-                    正在检索文档并生成回答...
-                  </span>
-                </div>
-              )}
-            </>
           )}
           <div ref={bottomRef} />
         </div>
