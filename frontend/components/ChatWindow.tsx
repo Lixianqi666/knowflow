@@ -170,7 +170,9 @@ export default function ChatWindow() {
       useStore.setState((s) => ({
         messages: s.messages.map((m) => (m.id === msgId ? { ...m, rating } : m)),
       }));
-    } catch {}
+    } catch (e) {
+      console.error('评分失败:', e);
+    }
   };
 
   return (

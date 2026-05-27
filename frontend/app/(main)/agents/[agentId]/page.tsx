@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 export default function AgentDetailPage() {
   const router = useRouter();
@@ -52,7 +53,10 @@ export default function AgentDetailPage() {
     try {
       await api.delete(`/agents/sessions/${sessionId}`);
       setAgentSessions(agentSessions.filter((s) => s.id !== sessionId));
-    } catch {}
+    } catch (e) {
+      console.error('删除会话失败:', e);
+      toast('删除失败', 'error');
+    }
   };
 
   return (

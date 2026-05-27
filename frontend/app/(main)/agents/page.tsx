@@ -24,7 +24,9 @@ export default function AgentsPage() {
     try {
       const items = await api.get<any[]>('/agents/');
       setAgents(Array.isArray(items) ? items : []);
-    } catch {}
+    } catch (e) {
+      console.error('加载 Agent 列表失败:', e);
+    }
     setLoading(false);
   };
 

@@ -39,7 +39,9 @@ export default function MessageBubble({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch {}
+    } catch (e) {
+      console.error('复制失败:', e);
+    }
   };
 
   // 去掉 LLM 回复末尾的 JSON 结构化数据和来源标注（前端已用组件展示来源）

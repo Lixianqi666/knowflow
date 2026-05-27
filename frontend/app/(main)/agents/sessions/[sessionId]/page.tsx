@@ -72,7 +72,9 @@ export default function AgentChatPage() {
       try {
         const a = await api.get<{ name: string; description: string }>(`/agents/${s.agent_id}`);
         setAgent(a);
-      } catch {}
+      } catch (e) {
+        console.error('加载 Agent 信息失败:', e);
+      }
     } catch {
       router.replace('/agents');
     }
@@ -131,7 +133,9 @@ export default function AgentChatPage() {
               } else if (event.type === 'error') {
                 toast(event.data || '服务错误', 'error');
               }
-            } catch {}
+            } catch {
+              // SSE 事件解析失败，跳过该帧
+            }
           }
         }
       }
@@ -170,7 +174,10 @@ export default function AgentChatPage() {
       await api.patch(`/agents/sessions/${sessionId}`, { title: title.trim() });
       setSession((s) => (s ? { ...s, title: title.trim() } : s));
       toast('已重命名', 'success');
-    } catch {}
+    } catch (e) {
+      console.error('重命名失败:', e);
+      toast('重命名失败', 'error');
+    }
   };
 
   if (loading) {
