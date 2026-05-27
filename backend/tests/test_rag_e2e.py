@@ -39,7 +39,9 @@ async def _inject_chunks(
 
 
 @pytest.mark.asyncio
-async def test_rag_chat_returns_sources(client: AsyncClient, auth_headers: dict, db_session_factory):
+async def test_rag_chat_returns_sources(
+    client: AsyncClient, auth_headers: dict, db_session_factory
+):
     """上传文档 → 注入 chunk → 发送消息 → 验证 sources 事件"""
     # 1. 上传文档
     resp = await client.post(
