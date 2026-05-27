@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
 import MessageBubble from './MessageBubble';
@@ -31,7 +30,6 @@ function mapApiMessages(msgs: ApiMessage[]): Message[] {
 }
 
 export default function ChatWindow() {
-  const router = useRouter();
   const {
     messages,
     addMessage,
@@ -56,6 +54,7 @@ export default function ChatWindow() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const justFinishedStreaming = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -67,6 +66,12 @@ export default function ChatWindow() {
       return;
     }
     if (streaming) return;
+
+    // 流式刚结束时跳过 API 重新拉取，避免覆盖刚收到的消息
+    if (justFinishedStreaming.current) {
+      justFinishedStreaming.current = false;
+      return;
+    }
 
     // 有缓存时直接使用，不显示加载状态
     const cached = messagesCache[currentConvId];
@@ -115,7 +120,8 @@ export default function ChatWindow() {
         });
         convId = conv.id;
         setCurrentConvId(convId);
-        router.replace(`/chat/${convId}`);
+        // 用 history.replaceState 替代 router.replace，避免 ChatWindow 卸载重挂导致流式状态丢失
+        window.history.replaceState(null, '', `/chat/${convId}`);
         setConversations(await api.get<Conversation[]>('/chat/conversations'));
       }
       const stream = await api.streamChat(convId!, content, controller.signal);
@@ -152,6 +158,7 @@ export default function ChatWindow() {
     } catch (err: any) {
       if (err.name !== 'AbortError') setChatError(err.message);
     } finally {
+      justFinishedStreaming.current = true;
       setStreaming(false);
       setWaitingFirstToken(false);
       abortRef.current = null;
