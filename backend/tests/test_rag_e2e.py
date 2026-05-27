@@ -6,12 +6,12 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import text
 
-from tests.conftest import _session_factory
+import tests.conftest as conftest_mod
 
 
 async def _inject_chunks(doc_id: str, content: str = "请假流程：员工需提前3天提交申请"):
     """手动注入 document_chunks，跳过 Celery 索引任务"""
-    async with _session_factory() as session:
+    async with conftest_mod._session_factory() as session:
         chunk_id = str(uuid.uuid4())
         await session.execute(
             text("""

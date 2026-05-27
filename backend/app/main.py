@@ -14,6 +14,7 @@ from app.api.v1 import (
     auth,
     chat,
     documents,
+    feedback,
     knowledge_bases,
     mcp,
 )
@@ -87,6 +88,7 @@ app.include_router(webhooks.router, prefix="/api/v1")
 app.include_router(plugins_router.router, prefix="/api/v1")
 app.include_router(mcp.router, prefix="/api/v1")
 app.include_router(agents.router, prefix="/api/v1")
+app.include_router(feedback.router, prefix="/api/v1")
 
 
 @app.exception_handler(Exception)
