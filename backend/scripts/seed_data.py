@@ -144,8 +144,12 @@ def gen_sql():
         aid = h(name)
         agent_ids[name] = aid
         safe_prompt = prompt.replace("'", "''")
-        kb_arr = json.dumps([kb_ids["公司制度"], kb_ids["人事行政"]])
-        lines.append(f"INSERT INTO agents (id, name, description, system_prompt, knowledge_base_ids, top_k, threshold, rerank_top_k, is_active, created_by, created_at, updated_at) VALUES ('{aid}', '{name}', '{desc}', '{safe_prompt}', '{kb_arr}', 5, 30, 3, true, '{admin_id}', '{now(-15)}', '{now()}') ON CONFLICT DO NOTHING;")
+        lines.append(f"INSERT INTO agents (id, name, description, system_prompt, top_k, threshold, rerank_top_k, is_active, created_by, created_at, updated_at) VALUES ('{aid}', '{name}', '{desc}', '{safe_prompt}', 5, 30, 3, true, '{admin_id}', '{now(-15)}', '{now()}') ON CONFLICT DO NOTHING;")
+        # 关联知识库
+        for kb_name in ["公司制度", "人事行政"]:
+            kb_id = kb_ids.get(kb_name)
+            if kb_id:
+                lines.append(f"INSERT INTO agent_knowledge_bases (agent_id, kb_id) VALUES ('{aid}', '{kb_id}') ON CONFLICT DO NOTHING;")
 
     # Conversations & Messages
     for user_name, msgs in CONVS:

@@ -17,6 +17,7 @@ from app.core.security import get_current_user
 from app.database import async_session, get_db
 from app.models.agent import Agent
 from app.models.agent_session import AgentMessage, AgentSession
+from app.models.knowledge_base import KnowledgeBase
 from app.models.user import User
 
 router = APIRouter(prefix="/agents", tags=["Agent 应用"])
@@ -80,7 +81,7 @@ async def list_all_agents(
             "name": a.name,
             "description": a.description,
             "system_prompt": a.system_prompt,
-            "knowledge_base_ids": a.knowledge_base_ids,
+            "knowledge_base_ids": [str(kb.id) for kb in a.knowledge_bases],
             "top_k": a.top_k,
             "threshold": a.threshold,
             "rerank_top_k": a.rerank_top_k,
@@ -101,12 +102,17 @@ async def create_agent(
         name=data.name,
         description=data.description,
         system_prompt=data.system_prompt,
-        knowledge_base_ids=data.knowledge_base_ids,
         top_k=data.top_k,
         threshold=data.threshold,
         rerank_top_k=data.rerank_top_k,
         created_by=admin.id,
     )
+    # 设置知识库关联
+    if data.knowledge_base_ids:
+        kbs = await db.execute(
+            select(KnowledgeBase).where(KnowledgeBase.id.in_(data.knowledge_base_ids))
+        )
+        agent.knowledge_bases = list(kbs.scalars().all())
     db.add(agent)
     await db.flush()
     await cache_delete(AGENTS_CACHE_KEY)
@@ -130,7 +136,10 @@ async def update_agent(
     if data.system_prompt is not None:
         agent.system_prompt = data.system_prompt
     if data.knowledge_base_ids is not None:
-        agent.knowledge_base_ids = data.knowledge_base_ids
+        kbs = await db.execute(
+            select(KnowledgeBase).where(KnowledgeBase.id.in_(data.knowledge_base_ids))
+        )
+        agent.knowledge_bases = list(kbs.scalars().all())
     if data.top_k is not None:
         agent.top_k = data.top_k
     if data.threshold is not None:
@@ -205,7 +214,7 @@ async def get_agent(
         "name": agent.name,
         "description": agent.description,
         "system_prompt": agent.system_prompt,
-        "knowledge_base_ids": agent.knowledge_base_ids,
+        "knowledge_base_ids": [str(kb.id) for kb in agent.knowledge_bases],
         "top_k": agent.top_k,
         "threshold": agent.threshold,
         "rerank_top_k": agent.rerank_top_k,

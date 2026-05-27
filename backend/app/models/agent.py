@@ -1,10 +1,19 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+# Agent <-> KnowledgeBase 多对多关联表
+agent_knowledge_bases = Table(
+    "agent_knowledge_bases",
+    Base.metadata,
+    Column("agent_id", UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True),
+    Column("kb_id", UUID(as_uuid=True), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Agent(Base):
@@ -14,7 +23,6 @@ class Agent(Base):
     name = Column(String(100), nullable=False)
     description = Column(Text, default="")
     system_prompt = Column(Text, default="")
-    knowledge_base_ids = Column(JSONB, default=list)
     top_k = Column(Integer, default=5)
     threshold = Column(Integer, default=30)
     rerank_top_k = Column(Integer, default=3)
@@ -26,3 +34,5 @@ class Agent(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    knowledge_bases = relationship("KnowledgeBase", secondary=agent_knowledge_bases, lazy="selectin")

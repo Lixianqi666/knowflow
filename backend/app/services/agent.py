@@ -39,7 +39,7 @@ class AgentService:
         top_k = agent.top_k or 5
         threshold = (agent.threshold or 30) / 100.0
         rerank_top_k = agent.rerank_top_k or 3
-        agent_kb_ids = agent.knowledge_base_ids or []
+        agent_kb_ids = [str(kb.id) for kb in agent.knowledge_bases] if agent.knowledge_bases else []
         system_prompt = agent.system_prompt or ""
 
         # 1. 历史消息
