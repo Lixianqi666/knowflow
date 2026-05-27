@@ -36,7 +36,7 @@ async def rewrite(query: str, history: str = "") -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.1,
+            temperature=0.0,
             max_tokens=100,
         )
         if settings.LLM_API_KEY:
