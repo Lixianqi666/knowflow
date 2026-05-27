@@ -59,7 +59,8 @@ async def test_cache_delete_by_tag():
     with patch("app.core.cache.get_redis", return_value=mock_redis):
         await cache_delete("tag1")
 
-    mock_redis.delete.assert_called_once_with("k1", "k2", "cache:tag:tag1")
+    mock_redis.delete.assert_called_once()
+    assert set(mock_redis.delete.call_args[0]) == {"k1", "k2", "cache:tag:tag1"}
 
 
 @pytest.mark.asyncio

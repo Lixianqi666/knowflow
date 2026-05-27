@@ -74,7 +74,7 @@ def _make_xlsx() -> bytes:
     sheet_xml = (
         '<?xml version="1.0"?><worksheet'
         ' xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-        "<sheetData><row><c t=\"inlineStr\"><is><t>测试XLSX</t></is></c></row>"
+        '<sheetData><row><c t="inlineStr"><is><t>测试XLSX</t></is></c></row>'
         "</sheetData></worksheet>"
     )
     with zipfile.ZipFile(buf, "w") as zf:
