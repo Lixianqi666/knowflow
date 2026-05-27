@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
-app = FastAPI(title="KnowFlow", version="0.1.0", lifespan=lifespan, redirect_slashes=False)
+app = FastAPI(title="KnowFlow", version="0.1.0", lifespan=lifespan)
 
 # Request ID — 最先注册，确保日志中全局可用
 app.add_middleware(RequestIDMiddleware)
