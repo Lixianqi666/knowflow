@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    # 运行环境：development / production
+    ENVIRONMENT: str = "development"
     # 数据库
     DATABASE_URL: str = "postgresql+asyncpg://knowflow:knowflow@localhost:5432/knowflow"
     # Redis
@@ -166,9 +168,14 @@ ZH_STOP = frozenset(
     }
 )
 
-# 启动时若未配置 SECRET_KEY，自动生成并警告
+# 启动时若未配置 SECRET_KEY，自动生成并警告；生产环境直接拒绝启动
 _SECRET_KEY_AUTO = False
 if not settings.SECRET_KEY:
+    if settings.ENVIRONMENT == "production":
+        import sys
+
+        print("FATAL: 生产环境必须设置 SECRET_KEY，请在 .env 中配置。", file=sys.stderr)
+        sys.exit(1)
     settings.SECRET_KEY = secrets.token_urlsafe(48)
     _SECRET_KEY_AUTO = True
     import logging

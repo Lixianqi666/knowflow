@@ -151,6 +151,7 @@ async def upload_file(
         kb_id=kb_id,
         external_id=file.filename,
         title=file.filename,
+        stored_filename=safe_filename,
         content=text_content,
         content_hash=content_hash,
     )
@@ -417,7 +418,7 @@ async def download_file(
         raise HTTPException(status_code=404, detail="文档不存在")
     await _require_doc_permission(db, doc_id, user)
 
-    filepath = Path(settings.UPLOAD_DIR) / Path(doc.title).name
+    filepath = Path(settings.UPLOAD_DIR) / (doc.stored_filename or Path(doc.title).name)
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
     await audit_log(db, str(user.id), "download_file", "document", doc_id, doc.title)
