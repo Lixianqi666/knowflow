@@ -167,8 +167,10 @@ ZH_STOP = frozenset(
 )
 
 # 启动时若未配置 SECRET_KEY，自动生成并警告
+_SECRET_KEY_AUTO = False
 if not settings.SECRET_KEY:
     settings.SECRET_KEY = secrets.token_urlsafe(48)
+    _SECRET_KEY_AUTO = True
     import logging
 
     logging.getLogger(__name__).warning(

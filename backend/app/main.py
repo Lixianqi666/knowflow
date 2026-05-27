@@ -35,6 +35,16 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 生产环境强制检查 SECRET_KEY
+    import os
+
+    from app.config import _SECRET_KEY_AUTO
+
+    if _SECRET_KEY_AUTO and not os.getenv("TESTING"):
+        raise RuntimeError(
+            "SECRET_KEY 未设置，生产环境禁止使用自动生成的随机密钥。"
+            "请在环境变量或 .env 中设置 SECRET_KEY（openssl rand -hex 32）。"
+        )
     init_logging()
     await init_db()
     init_langfuse()

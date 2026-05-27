@@ -12,5 +12,8 @@ ENV HF_HOME=/app/hf_cache
 RUN mkdir -p /app/hf_cache && \
     find . -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 
-RUN useradd -m -u 1001 app && mkdir -p /app/uploads && chmod 777 /app/uploads
+RUN useradd -m -u 1001 app && \
+    mkdir -p /app/uploads /app/hf_cache && \
+    chown -R app:app /app/uploads /app/hf_cache && \
+    chmod 755 /app/uploads /app/hf_cache
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
