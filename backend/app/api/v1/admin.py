@@ -205,9 +205,7 @@ async def grant_permission(
     target = await db.get(User, body.user_id)
     if not target:
         raise HTTPException(status_code=404, detail="目标用户不存在")
-    perm = DocumentPermission(
-        document_id=doc_id, user_id=body.user_id, permission=body.permission
-    )
+    perm = DocumentPermission(document_id=doc_id, user_id=body.user_id, permission=body.permission)
     db.add(perm)
     await db.flush()
     await audit_log(

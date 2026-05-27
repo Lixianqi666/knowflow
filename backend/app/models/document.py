@@ -28,17 +28,26 @@ class Document(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id", ondelete="CASCADE"))
     kb_id = Column(
-        UUID(as_uuid=True), ForeignKey("knowledge_bases.id", ondelete="SET NULL"), nullable=True, index=True
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_bases.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     external_id = Column(String(255))
     title = Column(String(500), nullable=False)
     content = Column(Text)
     content_hash = Column(String(64), index=True)
     metadata_ = Column("metadata", JSONB, default=dict)
-    status = Column(String(20), default="pending", index=True)  # pending / processing / indexed / failed
+    status = Column(
+        String(20), default="pending", index=True
+    )  # pending / processing / indexed / failed
     indexed_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class DocumentChunk(Base):

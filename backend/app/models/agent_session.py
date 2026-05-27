@@ -20,7 +20,11 @@ class AgentSession(Base):
     )
     title = Column(String(200), default="新会话")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
     messages = relationship("AgentMessage", cascade="all, delete-orphan", passive_deletes=True)
 

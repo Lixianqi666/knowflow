@@ -102,7 +102,14 @@ interface Store {
   setAgentStreaming: (v: boolean) => void;
 
   // 管理后台
-  adminUsers: { id: string; email: string; name: string; role: string; is_active: boolean; created_at: string }[];
+  adminUsers: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    is_active: boolean;
+    created_at: string;
+  }[];
   setAdminUsers: (users: Store['adminUsers']) => void;
   adminStats: {
     users: number;

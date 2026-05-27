@@ -24,7 +24,9 @@ export default function SourceViewer({ documentId, highlightChunkId, onClose }: 
   useEffect(() => {
     setLoading(true);
     api
-      .get<{ document: { title: string; content: string }; chunks: Chunk[] }>(`/documents/${documentId}/chunks`)
+      .get<{ document: { title: string; content: string }; chunks: Chunk[] }>(
+        `/documents/${documentId}/chunks`,
+      )
       .then((data) => {
         setDoc(data.document);
         setChunks(Array.isArray(data?.chunks) ? data.chunks : []);

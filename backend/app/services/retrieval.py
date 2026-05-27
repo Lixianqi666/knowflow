@@ -241,7 +241,9 @@ class RetrievalService:
         if not cjk_terms:
             return []
         kb_cond, kb_params = _get_kb_filter(kb_id, kb_ids)
-        like_conds = " OR ".join("dc.content ILIKE :t{} ESCAPE '\\'".format(i) for i in range(len(cjk_terms)))
+        like_conds = " OR ".join(
+            "dc.content ILIKE :t{} ESCAPE '\\'".format(i) for i in range(len(cjk_terms))
+        )
         params = {"uid": user_id, **kb_params}
         for i, term in enumerate(cjk_terms):
             escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
