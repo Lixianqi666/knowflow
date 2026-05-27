@@ -62,9 +62,7 @@ async def list_users(
     if q and q.strip():
         pattern = f"%{q.strip()}%"
         query = query.where(User.name.ilike(pattern) | User.email.ilike(pattern))
-    result = await db.execute(
-        query.order_by(User.created_at.desc()).offset(offset).limit(limit)
-    )
+    result = await db.execute(query.order_by(User.created_at.desc()).offset(offset).limit(limit))
     users = result.scalars().all()
     return [
         {
