@@ -85,6 +85,7 @@ async def llm_mock():
         n = len(kwargs.get("input", []))
         mock_resp = MagicMock()
         mock_resp.data = [{"embedding": [0.1] * dim} for _ in range(n)]
+        mock_resp.model_dump.return_value = {"data": [{"embedding": [0.1] * dim} for _ in range(n)]}
         return mock_resp
 
     with (
