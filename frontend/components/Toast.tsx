@@ -39,9 +39,9 @@ const iconMap: Record<ToastType, React.ReactNode> = {
   info: <Info className="w-4 h-4" />,
 };
 const styleMap: Record<ToastType, React.CSSProperties> = {
-  success: { background: '#16a34a', color: '#fff' },
-  error: { background: '#dc2626', color: '#fff' },
-  info: { background: '#0f172a', color: '#fff' },
+  success: { background: 'var(--c-success)', color: '#fff' },
+  error: { background: 'var(--c-error)', color: '#fff' },
+  info: { background: 'var(--c-text)', color: 'var(--c-bg)' },
 };
 
 export function ToastContainer() {

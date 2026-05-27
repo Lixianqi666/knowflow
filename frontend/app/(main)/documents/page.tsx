@@ -216,7 +216,7 @@ function DocStats({ refreshKey, kbId }: { refreshKey: number; kbId?: string }) {
         <div
           key={s.label}
           className="rounded-lg px-2.5 py-2"
-          style={{ border: '1px solid var(--c-border)', background: '#fff' }}
+          style={{ border: '1px solid var(--c-border)', background: 'var(--c-surface)' }}
         >
           <span
             className="block text-xs"

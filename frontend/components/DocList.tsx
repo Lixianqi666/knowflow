@@ -29,10 +29,10 @@ const statusColor: Record<string, string> = {
   failed: '#dc2626',
 };
 const statusBg: Record<string, string> = {
-  indexed: '#f0fdf4',
-  processing: '#fffbeb',
-  pending: '#f3f4f6',
-  failed: '#fef2f2',
+  indexed: 'var(--c-success-subtle)',
+  processing: 'var(--c-warning-subtle)',
+  pending: 'var(--c-bg)',
+  failed: 'var(--c-error-subtle)',
 };
 
 function DocSkeleton() {

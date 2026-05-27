@@ -20,6 +20,8 @@ import {
   Settings,
   Pencil,
   Pin,
+  Moon,
+  Sun,
 } from 'lucide-react';
 
 function groupByDate(convs: Conversation[]) {
@@ -57,7 +59,7 @@ function groupByDate(convs: Conversation[]) {
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { conversations, currentConvId, setCurrentConvId, removeConversation, logout, user } =
+  const { conversations, currentConvId, setCurrentConvId, removeConversation, logout, user, theme, resolvedTheme, setTheme } =
     useStore();
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -265,7 +267,7 @@ export default function Sidebar() {
           md:w-[260px] md:min-w-[260px]
           ${mobileOpen ? 'w-[260px] min-w-[260px] fixed z-50 left-0 top-0' : 'w-0 min-w-0'}`}
         style={{
-          background: '#fff',
+          background: 'var(--c-surface)',
           borderRight: '1px solid var(--c-border)',
         }}
       >
@@ -295,6 +297,14 @@ export default function Sidebar() {
               <Search className="w-4 h-4" />
             </button>
             <button
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              className="p-1.5 rounded-lg transition-colors border-none cursor-pointer"
+              style={{ color: 'var(--c-text-tertiary)', background: 'none' }}
+              title={resolvedTheme === 'dark' ? '切换亮色模式' : '切换暗色模式'}
+            >
+              {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <button
               onClick={closeMobile}
               className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors md:hidden border-none cursor-pointer"
               style={{ color: 'var(--c-text-tertiary)' }}
@@ -310,18 +320,18 @@ export default function Sidebar() {
             onClick={handleNewChat}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border text-sm transition-all cursor-pointer"
             style={{
-              borderColor: '#e5e7eb',
-              color: '#374151',
-              background: '#fff',
+              borderColor: 'var(--c-border)',
+              color: 'var(--c-text)',
+              background: 'var(--c-surface)',
               fontWeight: 400,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#f9fafb';
-              e.currentTarget.style.borderColor = '#d1d5db';
+              e.currentTarget.style.background = 'var(--c-surface-hover)';
+              e.currentTarget.style.borderColor = 'var(--c-border-hover)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#fff';
-              e.currentTarget.style.borderColor = '#e5e7eb';
+              e.currentTarget.style.background = 'var(--c-surface)';
+              e.currentTarget.style.borderColor = 'var(--c-border)';
             }}
           >
             <svg
@@ -392,7 +402,7 @@ export default function Sidebar() {
                             style={{
                               borderColor: 'var(--c-primary)',
                               color: 'var(--c-text)',
-                              background: '#fff',
+                              background: 'var(--c-surface)',
                               boxShadow: '0 0 0 2px var(--c-primary-ring)',
                             }}
                             autoFocus
@@ -538,9 +548,9 @@ export default function Sidebar() {
           style={{
             top: menuPos.top,
             left: menuPos.left,
-            background: '#fff',
+            background: 'var(--c-surface)',
             border: '1px solid var(--c-border)',
-            boxShadow: '0 6px 20px rgba(0,0,0,.12)',
+            boxShadow: 'var(--shadow-lg)',
           }}
         >
           <button
@@ -612,8 +622,8 @@ export default function Sidebar() {
           <div
             className="fixed z-[100] top-[15%] left-1/2 -translate-x-1/2 w-[90vw] max-w-lg rounded-2xl overflow-hidden"
             style={{
-              background: '#fff',
-              boxShadow: '0 20px 60px rgba(0,0,0,.2)',
+              background: 'var(--c-surface)',
+              boxShadow: 'var(--shadow-lg)',
               border: '1px solid var(--c-border)',
             }}
           >
