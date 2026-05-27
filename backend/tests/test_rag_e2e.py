@@ -5,7 +5,7 @@ import uuid
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 
 async def _inject_chunks(
@@ -19,7 +19,7 @@ async def _inject_chunks(
         await session.execute(
             text("""
                 INSERT INTO document_chunks
-                    (id, document_id, content, chunk_index, embedding, tsvector)
+                    (id, document_id, content, chunk_index, embedding, tsvector_content)
                 VALUES (
                     :cid, :did, :content, 0,
                     CAST(:embedding AS vector),
