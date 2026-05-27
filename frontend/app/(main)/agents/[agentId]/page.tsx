@@ -39,7 +39,9 @@ export default function AgentDetailPage() {
   const createSession = async () => {
     setCreating(true);
     try {
-      const session = await api.post<AgentSessionItem>(`/agents/${agentId}/sessions`, { title: '新会话' });
+      const session = await api.post<AgentSessionItem>(`/agents/${agentId}/sessions`, {
+        title: '新会话',
+      });
       setCreating(false);
       router.push(`/agents/sessions/${session.id}`);
     } catch {

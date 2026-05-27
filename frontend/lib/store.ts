@@ -40,6 +40,7 @@ export interface Agent {
   knowledge_base_ids?: string[];
   top_k?: number;
   threshold?: number;
+  rerank_top_k?: number;
 }
 
 export interface AgentSessionItem {
