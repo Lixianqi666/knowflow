@@ -254,6 +254,7 @@ class RetrievalService:
             JOIN documents d ON dc.document_id = d.id
             WHERE d.status = 'indexed' AND ({like_conds})
               {perm} {kb_cond}
+            ORDER BY dc.id
             LIMIT :limit
         """)
         params["limit"] = top_k
