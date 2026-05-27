@@ -59,8 +59,17 @@ function groupByDate(convs: Conversation[]) {
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { conversations, currentConvId, setCurrentConvId, removeConversation, logout, user, theme, resolvedTheme, setTheme } =
-    useStore();
+  const {
+    conversations,
+    currentConvId,
+    setCurrentConvId,
+    removeConversation,
+    logout,
+    user,
+    theme,
+    resolvedTheme,
+    setTheme,
+  } = useStore();
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState('');
@@ -302,7 +311,11 @@ export default function Sidebar() {
               style={{ color: 'var(--c-text-tertiary)', background: 'none' }}
               title={resolvedTheme === 'dark' ? '切换亮色模式' : '切换暗色模式'}
             >
-              {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {resolvedTheme === 'dark' ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
             </button>
             <button
               onClick={closeMobile}
@@ -428,7 +441,10 @@ export default function Sidebar() {
                         >
                           <span className="flex items-center gap-1.5">
                             {conv.is_pinned && (
-                              <Pin className="w-3 h-3 shrink-0" style={{ color: 'var(--c-primary)' }} />
+                              <Pin
+                                className="w-3 h-3 shrink-0"
+                                style={{ color: 'var(--c-primary)' }}
+                              />
                             )}
                             <span className="truncate">{conv.title || '新对话'}</span>
                           </span>
@@ -585,7 +601,10 @@ export default function Sidebar() {
                   e.currentTarget.style.background = 'none';
                 }}
               >
-                <Pin className="w-3.5 h-3.5" style={{ color: isPinned ? 'var(--c-primary)' : 'var(--c-text-tertiary)' }} />
+                <Pin
+                  className="w-3.5 h-3.5"
+                  style={{ color: isPinned ? 'var(--c-primary)' : 'var(--c-text-tertiary)' }}
+                />
                 {isPinned ? '取消置顶' : '置顶'}
               </button>
             );
@@ -627,7 +646,10 @@ export default function Sidebar() {
               border: '1px solid var(--c-border)',
             }}
           >
-            <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--c-border)' }}>
+            <div
+              className="flex items-center gap-2 px-4 py-3"
+              style={{ borderBottom: '1px solid var(--c-border)' }}
+            >
               <Search className="w-4 h-4 shrink-0" style={{ color: 'var(--c-text-tertiary)' }} />
               <input
                 autoFocus
@@ -651,19 +673,29 @@ export default function Sidebar() {
             <div className="max-h-[60vh] overflow-y-auto">
               {searchLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--c-border)', borderTopColor: 'var(--c-primary)' }} />
+                  <div
+                    className="w-5 h-5 border-2 rounded-full animate-spin"
+                    style={{ borderColor: 'var(--c-border)', borderTopColor: 'var(--c-primary)' }}
+                  />
                 </div>
               ) : searchResults ? (
                 <>
-                  {searchResults.conversations.length === 0 && searchResults.documents.length === 0 ? (
-                    <p className="text-sm text-center py-8" style={{ color: 'var(--c-text-tertiary)' }}>
+                  {searchResults.conversations.length === 0 &&
+                  searchResults.documents.length === 0 ? (
+                    <p
+                      className="text-sm text-center py-8"
+                      style={{ color: 'var(--c-text-tertiary)' }}
+                    >
                       未找到匹配结果
                     </p>
                   ) : (
                     <>
                       {searchResults.conversations.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--c-text-tertiary)' }}>
+                          <div
+                            className="px-4 py-2 text-xs font-medium"
+                            style={{ color: 'var(--c-text-tertiary)' }}
+                          >
                             对话
                           </div>
                           {searchResults.conversations.map((c) => (
@@ -676,10 +708,17 @@ export default function Sidebar() {
                               }}
                               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left border-none cursor-pointer transition-colors"
                               style={{ color: 'var(--c-text)', background: 'none' }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--c-bg)'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'var(--c-bg)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'none';
+                              }}
                             >
-                              <MessageSquare className="w-4 h-4 shrink-0" style={{ color: 'var(--c-text-tertiary)' }} />
+                              <MessageSquare
+                                className="w-4 h-4 shrink-0"
+                                style={{ color: 'var(--c-text-tertiary)' }}
+                              />
                               <span className="truncate">{c.title || '新对话'}</span>
                             </button>
                           ))}
@@ -687,7 +726,13 @@ export default function Sidebar() {
                       )}
                       {searchResults.documents.length > 0 && (
                         <div>
-                          <div className="px-4 py-2 text-xs font-medium" style={{ color: 'var(--c-text-tertiary)', borderTop: '1px solid var(--c-border)' }}>
+                          <div
+                            className="px-4 py-2 text-xs font-medium"
+                            style={{
+                              color: 'var(--c-text-tertiary)',
+                              borderTop: '1px solid var(--c-border)',
+                            }}
+                          >
                             文档
                           </div>
                           {searchResults.documents.map((d) => (
@@ -699,10 +744,17 @@ export default function Sidebar() {
                               }}
                               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left border-none cursor-pointer transition-colors"
                               style={{ color: 'var(--c-text)', background: 'none' }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--c-bg)'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'var(--c-bg)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'none';
+                              }}
                             >
-                              <FileText className="w-4 h-4 shrink-0" style={{ color: 'var(--c-text-tertiary)' }} />
+                              <FileText
+                                className="w-4 h-4 shrink-0"
+                                style={{ color: 'var(--c-text-tertiary)' }}
+                              />
                               <span className="truncate">{d.title}</span>
                             </button>
                           ))}
@@ -721,10 +773,25 @@ export default function Sidebar() {
                 </p>
               )}
             </div>
-            <div className="px-4 py-2 text-[10px]" style={{ color: 'var(--c-text-tertiary)', borderTop: '1px solid var(--c-border)' }}>
-              <kbd className="px-1 py-0.5 rounded text-[10px]" style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}>⌘K</kbd> 打开搜索
+            <div
+              className="px-4 py-2 text-[10px]"
+              style={{ color: 'var(--c-text-tertiary)', borderTop: '1px solid var(--c-border)' }}
+            >
+              <kbd
+                className="px-1 py-0.5 rounded text-[10px]"
+                style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}
+              >
+                ⌘K
+              </kbd>{' '}
+              打开搜索
               <span className="mx-2">·</span>
-              <kbd className="px-1 py-0.5 rounded text-[10px]" style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}>Esc</kbd> 关闭
+              <kbd
+                className="px-1 py-0.5 rounded text-[10px]"
+                style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}
+              >
+                Esc
+              </kbd>{' '}
+              关闭
             </div>
           </div>
         </>

@@ -35,4 +35,6 @@ class Agent(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    knowledge_bases = relationship("KnowledgeBase", secondary=agent_knowledge_bases, lazy="selectin")
+    knowledge_bases = relationship(
+        "KnowledgeBase", secondary=agent_knowledge_bases, lazy="selectin"
+    )

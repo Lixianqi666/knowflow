@@ -22,4 +22,6 @@ class KnowledgeBase(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    agents = relationship("Agent", secondary="agent_knowledge_bases", back_populates="knowledge_bases")
+    agents = relationship(
+        "Agent", secondary="agent_knowledge_bases", back_populates="knowledge_bases"
+    )

@@ -164,9 +164,12 @@ export const useStore = create<Store>((set, get) => ({
     }
     // 初始化主题
     const savedTheme = (localStorage.getItem('theme') as Theme) || 'system';
-    const resolved = savedTheme === 'system'
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : savedTheme;
+    const resolved =
+      savedTheme === 'system'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+        : savedTheme;
     document.documentElement.setAttribute('data-theme', resolved);
     set({ token, user, _hydrated: true, theme: savedTheme, resolvedTheme: resolved });
   },
@@ -197,9 +200,12 @@ export const useStore = create<Store>((set, get) => ({
   resolvedTheme: 'light',
   setTheme: (theme: Theme) => {
     localStorage.setItem('theme', theme);
-    const resolved = theme === 'system'
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : theme;
+    const resolved =
+      theme === 'system'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+        : theme;
     document.documentElement.setAttribute('data-theme', resolved);
     set({ theme, resolvedTheme: resolved });
   },

@@ -66,10 +66,11 @@ async def _search(args: dict, user: User):
 
 
 async def _get_document(args: dict, user: User):
+    from sqlalchemy import select
+
     from app.database import async_session
     from app.models.document import Document
     from app.models.permission import DocumentPermission
-    from sqlalchemy import select
 
     doc_id = args.get("document_id", "")
     async with async_session() as db:
