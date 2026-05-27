@@ -22,7 +22,7 @@ async def _inject_chunks(
                     (id, document_id, content, chunk_index, embedding, tsvector)
                 VALUES (
                     :cid, :did, :content, 0,
-                    :embedding::vector,
+                    CAST(:embedding AS vector),
                     to_tsvector('simple', :tsv)
                 )
                 """),
