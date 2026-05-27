@@ -11,8 +11,18 @@ from app.database import Base
 agent_knowledge_bases = Table(
     "agent_knowledge_bases",
     Base.metadata,
-    Column("agent_id", UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True),
-    Column("kb_id", UUID(as_uuid=True), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "agent_id",
+        UUID(as_uuid=True),
+        ForeignKey("agents.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "kb_id",
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
 )
 
 
