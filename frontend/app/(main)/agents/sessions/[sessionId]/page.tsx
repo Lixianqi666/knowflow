@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useStore } from '@/lib/store';
+import { useStore, Message } from '@/lib/store';
 import { api } from '@/lib/api';
 import MessageBubble from '@/components/MessageBubble';
 import { toast } from '@/components/Toast';
@@ -23,8 +23,8 @@ export default function AgentChatPage() {
     setAgentStreaming,
   } = useStore();
 
-  const [session, setSession] = useState<any>(null);
-  const [agent, setAgent] = useState<any>(null);
+  const [session, setSession] = useState<{ agent_id: string; title: string } | null>(null);
+  const [agent, setAgent] = useState<{ name: string; description: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState('');
@@ -63,14 +63,14 @@ export default function AgentChatPage() {
     setLoading(true);
     try {
       const [s, msgs] = await Promise.all([
-        api.get<any>(`/agents/sessions/${sessionId}`),
-        api.get<any[]>(`/agents/sessions/${sessionId}/messages`),
+        api.get<{ agent_id: string; title: string }>(`/agents/sessions/${sessionId}`),
+        api.get<Message[]>(`/agents/sessions/${sessionId}/messages`),
       ]);
       setSession(s);
       setTitle(s.title);
       setAgentMessages(Array.isArray(msgs) ? msgs : []);
       try {
-        const a = await api.get<any>(`/agents/${s.agent_id}`);
+        const a = await api.get<{ name: string; description: string }>(`/agents/${s.agent_id}`);
         setAgent(a);
       } catch {}
     } catch {
@@ -93,17 +93,10 @@ export default function AgentChatPage() {
     abortRef.current = controller;
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/agents/sessions/${sessionId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${api.getToken()}`,
-          },
-          body: JSON.stringify({ content: text }),
-          signal: controller.signal,
-        },
+      const response = await api.streamPost(
+        `/agents/sessions/${sessionId}/messages`,
+        { content: text },
+        controller.signal,
       );
 
       if (!response.ok) {
@@ -175,7 +168,7 @@ export default function AgentChatPage() {
     if (!title.trim() || title === session?.title) return;
     try {
       await api.patch(`/agents/sessions/${sessionId}`, { title: title.trim() });
-      setSession((s: any) => ({ ...s, title: title.trim() }));
+      setSession((s) => (s ? { ...s, title: title.trim() } : s));
       toast('已重命名', 'success');
     } catch {}
   };

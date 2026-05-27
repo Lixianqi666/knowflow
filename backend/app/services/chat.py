@@ -70,6 +70,7 @@ class ChatService:
         threshold = settings.RETRIEVAL_THRESHOLD
         rerank_top_k = settings.RETRIEVAL_RERANK_TOP_K
         system_prompt = RAG_SYSTEM
+        tmpl = None
 
         if template_id:
             try:
@@ -128,20 +129,15 @@ class ChatService:
         if not has_context:
             system_prompt = NO_CONTEXT_SYSTEM
 
-        if template_id:
-            try:
-                tmpl = await self.db.get(PromptTemplate, template_id)
-                if tmpl and tmpl.is_active:
-                    if has_context:
-                        # 模板的 system_prompt 作为角色设定，RAG_SYSTEM 的规则作为强制约束
-                        role = tmpl.system_prompt or "你是KnowFlow智能助手。"
-                        system_prompt = f"{role}\n\n{RAG_SYSTEM}"
-                    else:
-                        sp = tmpl.no_context_prompt
-                        if sp:
-                            system_prompt = sp
-            except Exception:
-                pass
+        if tmpl and tmpl.is_active:
+            if has_context:
+                # 模板的 system_prompt 作为角色设定，RAG_SYSTEM 的规则作为强制约束
+                role = tmpl.system_prompt or "你是KnowFlow智能助手。"
+                system_prompt = f"{role}\n\n{RAG_SYSTEM}"
+            else:
+                sp = tmpl.no_context_prompt
+                if sp:
+                    system_prompt = sp
 
         context_text = (
             "\n\n---\n\n".join(f"[{c.document_title}]\n{c.content}" for c in chunks)

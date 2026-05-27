@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
@@ -19,7 +19,7 @@ class DataSource(Base):
     status = Column(String(20), default="active")
     last_sync_at = Column(DateTime(timezone=True))
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class Document(Base):
@@ -28,17 +28,17 @@ class Document(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id", ondelete="CASCADE"))
     kb_id = Column(
-        UUID(as_uuid=True), ForeignKey("knowledge_bases.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True), ForeignKey("knowledge_bases.id", ondelete="SET NULL"), nullable=True, index=True
     )
     external_id = Column(String(255))
     title = Column(String(500), nullable=False)
     content = Column(Text)
     content_hash = Column(String(64), index=True)
     metadata_ = Column("metadata", JSONB, default=dict)
-    status = Column(String(20), default="pending")  # pending / processing / indexed / failed
+    status = Column(String(20), default="pending", index=True)  # pending / processing / indexed / failed
     indexed_at = Column(DateTime(timezone=True))
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class DocumentChunk(Base):
@@ -55,4 +55,4 @@ class DocumentChunk(Base):
     embedding = Column(Vector(settings.EMBEDDING_DIM), nullable=True)
     tsvector_content = Column(TSVECTOR, nullable=True)
     metadata_ = Column("metadata", JSONB, default=dict)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

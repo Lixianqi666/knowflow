@@ -22,9 +22,12 @@ async def get_db():
 
 
 async def init_db():
+    import logging
+
+    logger = logging.getLogger(__name__)
     async with engine.begin() as conn:
         await conn.execute(__import__("sqlalchemy").text("CREATE EXTENSION IF NOT EXISTS vector"))
         try:
             await conn.run_sync(Base.metadata.create_all)
-        except Exception:
-            pass  # 表已存在时忽略
+        except Exception as e:
+            logger.warning(f"create_all 跳过（可能表已存在）: {e}")

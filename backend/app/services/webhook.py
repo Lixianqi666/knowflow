@@ -5,7 +5,7 @@ import json
 import logging
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.webhook import Webhook
@@ -18,7 +18,7 @@ async def dispatch(db: AsyncSession, event: str, payload: dict):
     result = await db.execute(
         select(Webhook).where(
             Webhook.is_active.is_(True),
-            Webhook.events.like(f"%{event}%"),
+            text(f"events ~ '(^|,){event}(,|$)'"),
         )
     )
     hooks = result.scalars().all()

@@ -1,13 +1,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UserCreate(BaseModel):
     email: str
     name: str
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class UserLogin(BaseModel):

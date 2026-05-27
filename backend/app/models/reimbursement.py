@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Float, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -16,7 +16,7 @@ class EmployeeProfile(Base):
     department = Column(String(100), nullable=False)
     level = Column(String(30), nullable=False)
     manager_name = Column(String(80), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class TravelReceipt(Base):
@@ -30,7 +30,7 @@ class TravelReceipt(Base):
     occurred_at = Column(DateTime(timezone=True), nullable=False)
     is_valid = Column(String(10), nullable=False, default="true")
     extra = Column("metadata", JSONB, default=dict)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class ReimbursementRequest(Base):
@@ -43,4 +43,4 @@ class ReimbursementRequest(Base):
     status = Column(String(30), nullable=False, default="submitted")
     detail = Column(Text, default="")
     receipt_ids = Column(JSONB, default=list)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

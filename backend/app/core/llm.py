@@ -1,5 +1,6 @@
 from typing import AsyncGenerator
 
+import httpx
 import litellm
 
 from app.config import settings
@@ -41,24 +42,28 @@ class EmbeddingService:
         self.model = settings.EMBEDDING_MODEL
         self.api_key = settings.EMBEDDING_API_KEY or settings.LLM_API_KEY
         self.api_base = settings.EMBEDDING_BASE_URL or settings.LLM_BASE_URL or None
+        self._client: httpx.AsyncClient | None = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=30)
+        return self._client
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        import httpx
-
         try:
             if self.api_base:
                 url = f"{self.api_base.rstrip('/')}/embeddings"
-                async with httpx.AsyncClient(timeout=30) as client:
-                    resp = await client.post(
-                        url,
-                        json={"model": self.model, "input": texts},
-                        headers={
-                            "Authorization": f"Bearer {self.api_key}",
-                            "Content-Type": "application/json",
-                        },
-                    )
-                    resp.raise_for_status()
-                    data = resp.json()
+                client = self._get_client()
+                resp = await client.post(
+                    url,
+                    json={"model": self.model, "input": texts},
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
             else:
                 # fallback to litellm for default provider
                 import litellm

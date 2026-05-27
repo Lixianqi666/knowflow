@@ -134,7 +134,9 @@ export default function ChatWindow() {
           } else if (event.type === 'error') {
             setChatError(event.data);
           }
-        } catch {}
+        } catch {
+          // SSE 事件解析失败，跳过该帧
+        }
       };
 
       while (true) {

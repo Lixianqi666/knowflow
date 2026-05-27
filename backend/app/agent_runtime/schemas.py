@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -49,7 +49,7 @@ class AgentStep(BaseModel):
     observation: AgentObservation | None = None
     latency_ms: int = 0
     tokens: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentState(BaseModel):

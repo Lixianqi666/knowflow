@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -19,4 +19,4 @@ class Feedback(Base):
     feedback_type = Column(String(20), nullable=False)  # transfer_human / record_issue
     message = Column(Text, nullable=True)
     status = Column(String(20), default="pending")  # pending / processing / resolved
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

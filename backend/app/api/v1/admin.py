@@ -1,7 +1,9 @@
 import asyncio
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,16 @@ from app.models.user import User
 from app.services.audit import log as audit_log
 
 router = APIRouter(prefix="/admin", tags=["管理后台"])
+
+
+class UpdateUserBody(BaseModel):
+    role: Literal["admin", "member"] | None = None
+    is_active: bool | None = None
+
+
+class GrantPermissionBody(BaseModel):
+    user_id: UUID
+    permission: str = Field(default="read", pattern=r"^(read|write)$")
 
 
 @router.get("/prompt-templates")
@@ -61,7 +73,7 @@ async def list_users(
 @router.put("/users/{user_id}")
 async def update_user(
     user_id: UUID,
-    body: dict,
+    body: UpdateUserBody,
     request: Request,
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
@@ -70,16 +82,16 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
     detail_changes = []
-    if "role" in body:
+    if body.role is not None:
         if user.id == admin.id:
             raise HTTPException(status_code=400, detail="不能修改自己的角色")
-        detail_changes.append(f"角色: {user.role}→{body['role']}")
-        user.role = body["role"]
-    if "is_active" in body:
-        if user.id == admin.id and not body["is_active"]:
+        detail_changes.append(f"角色: {user.role}→{body.role}")
+        user.role = body.role
+    if body.is_active is not None:
+        if user.id == admin.id and not body.is_active:
             raise HTTPException(status_code=400, detail="不能禁用自己")
-        detail_changes.append(f"状态: {'启用' if body['is_active'] else '禁用'}")
-        user.is_active = body["is_active"]
+        detail_changes.append(f"状态: {'启用' if body.is_active else '禁用'}")
+        user.is_active = body.is_active
     await db.flush()
     await audit_log(
         db,
@@ -185,30 +197,26 @@ async def list_permissions(
 @router.post("/documents/{doc_id}/permissions")
 async def grant_permission(
     doc_id: UUID,
-    body: dict,
+    body: GrantPermissionBody,
     request: Request,
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = body.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=400, detail="缺少 user_id")
+    target = await db.get(User, body.user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="目标用户不存在")
     perm = DocumentPermission(
-        document_id=doc_id, user_id=user_id, permission=body.get("permission", "read")
+        document_id=doc_id, user_id=body.user_id, permission=body.permission
     )
     db.add(perm)
     await db.flush()
-    target_user = await db.get(User, user_id)
-    target_name = target_user.name if target_user else user_id
-    doc = await db.get(Document, doc_id)
-    doc_title = doc.title if doc else doc_id
     await audit_log(
         db,
         str(admin.id),
         "admin_grant_permission",
         "document",
         str(doc_id),
-        f"管理员 {admin.name} 授予 {target_name} 对文档「{doc_title}」的权限",
+        f"管理员 {admin.name} 授予 {target.name} 对文档「{doc_id}」的权限",
         ip=request.client.host if request.client else None,
     )
     return {"detail": "已授权"}

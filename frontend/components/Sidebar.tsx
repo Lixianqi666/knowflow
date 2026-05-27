@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useStore } from '@/lib/store';
+import { useStore, Conversation } from '@/lib/store';
 import { api } from '@/lib/api';
 import { toast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -22,14 +22,14 @@ import {
   Pin,
 } from 'lucide-react';
 
-function groupByDate(convs: any[]) {
+function groupByDate(convs: Conversation[]) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today.getTime() - 86400000);
   const weekAgo = new Date(today.getTime() - 7 * 86400000);
 
-  const groups: { label: string; items: any[] }[] = [];
-  const map: Record<string, any[]> = { today: [], yesterday: [], week: [], older: [] };
+  const groups: { label: string; items: Conversation[] }[] = [];
+  const map: Record<string, Conversation[]> = { today: [], yesterday: [], week: [], older: [] };
 
   for (const c of convs) {
     const d = new Date(c.created_at);
@@ -137,7 +137,7 @@ export default function Sidebar() {
     }
   };
 
-  const startRename = (conv: any) => {
+  const startRename = (conv: Conversation) => {
     setRenamingId(conv.id);
     setRenameValue(conv.title || '');
     setContextMenuId(null);

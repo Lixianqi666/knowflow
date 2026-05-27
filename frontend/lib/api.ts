@@ -1,6 +1,6 @@
 import { useStore } from './store';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 class ApiClient {
   private token: string | null = null;
@@ -181,6 +181,19 @@ class ApiClient {
       throw new Error(err.detail || '请求失败');
     }
     return res.body!;
+  }
+
+  async streamPost(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
+    const res = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+      signal,
+    });
+    if (res.status === 401) {
+      this.handleUnauthorized();
+    }
+    return res;
   }
 }
 

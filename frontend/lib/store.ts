@@ -102,10 +102,21 @@ interface Store {
   setAgentStreaming: (v: boolean) => void;
 
   // 管理后台
-  adminUsers: any[];
-  setAdminUsers: (users: any[]) => void;
-  adminStats: any | null;
-  setAdminStats: (stats: any) => void;
+  adminUsers: { id: string; email: string; name: string; role: string; is_active: boolean; created_at: string }[];
+  setAdminUsers: (users: Store['adminUsers']) => void;
+  adminStats: {
+    users: number;
+    documents: number;
+    conversations: number;
+    chunks: number;
+    knowledge_bases: number;
+    messages: number;
+    hit_rate: number;
+    praise: number;
+    criticism: number;
+    today_conversations: number;
+  } | null;
+  setAdminStats: (stats: Store['adminStats']) => void;
 
   // 知识库
   kbs: { id: string; name: string; description: string }[];
@@ -235,6 +246,6 @@ export const useStore = create<Store>((set, get) => ({
   kbs: [],
   setKbs: (kbs) =>
     set((s) => ({
-      kbs: typeof kbs === 'function' ? (kbs as any)(s.kbs) : Array.isArray(kbs) ? kbs : [],
+      kbs: typeof kbs === 'function' ? kbs(s.kbs) : Array.isArray(kbs) ? kbs : [],
     })),
 }));

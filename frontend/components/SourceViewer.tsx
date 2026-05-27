@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { api } from '@/lib/api';
+import { api, API_URL } from '@/lib/api';
 
 interface Chunk {
   id: string;
@@ -24,7 +24,7 @@ export default function SourceViewer({ documentId, highlightChunkId, onClose }: 
   useEffect(() => {
     setLoading(true);
     api
-      .get<any>(`/documents/${documentId}/chunks`)
+      .get<{ document: { title: string; content: string }; chunks: Chunk[] }>(`/documents/${documentId}/chunks`)
       .then((data) => {
         setDoc(data.document);
         setChunks(Array.isArray(data?.chunks) ? data.chunks : []);
@@ -55,7 +55,7 @@ export default function SourceViewer({ documentId, highlightChunkId, onClose }: 
           <div className="flex items-center gap-2">
             {doc && (
               <a
-                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/documents/${documentId}/file`}
+                href={`${API_URL}/documents/${documentId}/file`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-blue-600 hover:underline flex items-center gap-1"
