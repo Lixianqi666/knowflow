@@ -20,8 +20,6 @@ import {
   Settings,
   Pencil,
   Pin,
-  Moon,
-  Sun,
 } from 'lucide-react';
 
 function groupByDate(convs: Conversation[]) {
@@ -66,9 +64,6 @@ export default function Sidebar() {
     removeConversation,
     logout,
     user,
-    theme,
-    resolvedTheme,
-    setTheme,
   } = useStore();
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -304,18 +299,6 @@ export default function Sidebar() {
               title="搜索 (⌘K)"
             >
               <Search className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              className="p-1.5 rounded-lg transition-colors border-none cursor-pointer"
-              style={{ color: 'var(--c-text-tertiary)', background: 'none' }}
-              title={resolvedTheme === 'dark' ? '切换亮色模式' : '切换暗色模式'}
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="w-4 h-4" />
-              ) : (
-                <Moon className="w-4 h-4" />
-              )}
             </button>
             <button
               onClick={closeMobile}

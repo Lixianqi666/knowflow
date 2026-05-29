@@ -30,14 +30,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(()=>{try{const t=localStorage.getItem('theme')||'system';const d=t==='system'?matchMedia('(prefers-color-scheme:dark)').matches:t==='dark';document.documentElement.setAttribute('data-theme',d?'dark':'light')}catch{}})()`,
-          }}
-        />
-      </head>
+    <html lang="zh-CN">
       <body className="antialiased min-h-screen bg-[var(--c-bg)] text-[var(--c-text)]">
         {children}
         <ToastContainer />
