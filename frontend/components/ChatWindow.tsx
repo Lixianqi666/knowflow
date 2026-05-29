@@ -54,8 +54,8 @@ export default function ChatWindow() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const justFinishedStreaming = useRef(false);
   const sendingRef = useRef(false);
+  const messagesConvIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -64,26 +64,25 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!currentConvId) {
       setMessages([]);
+      messagesConvIdRef.current = null;
       return;
     }
     if (streaming || sendingRef.current) return;
-
-    // 流式刚结束时跳过 API 重新拉取，避免覆盖刚收到的消息
-    if (justFinishedStreaming.current) {
-      justFinishedStreaming.current = false;
-      return;
-    }
+    // 消息已属于当前对话（流式收到或缓存命中），跳过 API 获取
+    if (messages.length > 0 && messagesConvIdRef.current === currentConvId) return;
 
     // 有缓存时直接使用，不显示加载状态
     const cached = messagesCache[currentConvId];
     if (cached) {
       setMessages(cached);
+      messagesConvIdRef.current = currentConvId;
       // 后台静默刷新
       api
         .get<ApiMessage[]>(`/chat/conversations/${currentConvId}/messages`)
         .then((msgs) => {
           const mapped = mapApiMessages(msgs);
           setMessages(mapped);
+          messagesConvIdRef.current = currentConvId;
           setCachedMessages(currentConvId, mapped);
         })
         .catch((e) => console.error('加载消息失败', e));
@@ -97,6 +96,7 @@ export default function ChatWindow() {
       .then((msgs) => {
         const mapped = mapApiMessages(msgs);
         setMessages(mapped);
+        messagesConvIdRef.current = currentConvId;
         setCachedMessages(currentConvId, mapped);
       })
       .catch((e) => setChatError(`加载失败: ${e instanceof Error ? e.message : '未知错误'}`))
@@ -123,6 +123,7 @@ export default function ChatWindow() {
         });
         convId = conv.id;
         setCurrentConvId(convId);
+        messagesConvIdRef.current = convId;
         // 用 history.replaceState 替代 router.replace，避免 ChatWindow 卸载重挂导致流式状态丢失
         window.history.replaceState(null, '', `/chat/${convId}`);
         setConversations(await api.get<Conversation[]>('/chat/conversations'));
@@ -161,7 +162,6 @@ export default function ChatWindow() {
     } catch (err: any) {
       if (err.name !== 'AbortError') setChatError(err.message);
     } finally {
-      justFinishedStreaming.current = true;
       sendingRef.current = false;
       setStreaming(false);
       setWaitingFirstToken(false);
