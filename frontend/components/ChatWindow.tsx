@@ -99,7 +99,7 @@ export default function ChatWindow() {
         setMessages(mapped);
         setCachedMessages(currentConvId, mapped);
       })
-      .catch((e) => setChatError(`加载失败: ${e.message}`))
+      .catch((e) => setChatError(`加载失败: ${e instanceof Error ? e.message : '未知错误'}`))
       .finally(() => setLoadingMessages(false));
   }, [currentConvId, streaming]);
 

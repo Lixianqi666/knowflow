@@ -50,8 +50,6 @@ export interface AgentSessionItem {
   created_at: string;
 }
 
-export type Theme = 'light' | 'dark' | 'system';
-
 interface Store {
   token: string | null;
   user: User | null;
@@ -59,11 +57,6 @@ interface Store {
   hydrate: () => void;
   setAuth: (token: string, user: User) => void;
   logout: () => void;
-
-  // 主题
-  theme: Theme;
-  resolvedTheme: 'light' | 'dark';
-  setTheme: (theme: Theme) => void;
 
   conversations: Conversation[];
   setConversations: (convs: Conversation[]) => void;
@@ -163,16 +156,7 @@ export const useStore = create<Store>((set, get) => ({
     } catch {
       localStorage.removeItem('user');
     }
-    // 初始化主题
-    const savedTheme = (localStorage.getItem('theme') as Theme) || 'system';
-    const resolved =
-      savedTheme === 'system'
-        ? window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light'
-        : savedTheme;
-    document.documentElement.setAttribute('data-theme', resolved);
-    set({ token, user, _hydrated: true, theme: savedTheme, resolvedTheme: resolved });
+    set({ token, user, _hydrated: true });
   },
   setAuth: (token, user) => {
     localStorage.setItem('token', token);
@@ -194,21 +178,6 @@ export const useStore = create<Store>((set, get) => ({
       adminStats: null,
       kbs: [],
     });
-  },
-
-  // 主题
-  theme: 'system',
-  resolvedTheme: 'light',
-  setTheme: (theme: Theme) => {
-    localStorage.setItem('theme', theme);
-    const resolved =
-      theme === 'system'
-        ? window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light'
-        : theme;
-    document.documentElement.setAttribute('data-theme', resolved);
-    set({ theme, resolvedTheme: resolved });
   },
 
   conversations: [],
