@@ -59,18 +59,22 @@ export default function AgentsPage() {
           {isAdmin && (
             <button
               onClick={() => setShowForm(!showForm)}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 text-sm text-white rounded-lg transition-colors"
+              style={{ background: 'var(--c-primary)' }}
             >
               {showForm ? '取消' : '新建 Agent'}
             </button>
           )}
         </div>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm mb-6" style={{ color: 'var(--c-text-secondary)' }}>
           选择 Agent 开始对话，每个 Agent 拥有独立的知识库和对话会话
         </p>
 
         {showForm && (
-          <div className="bg-white rounded-xl border p-6 mb-6">
+          <div
+            className="rounded-xl border p-6 mb-6"
+            style={{ background: 'var(--c-surface)', borderColor: 'var(--c-border)' }}
+          >
             <h2 className="font-semibold text-sm mb-4">新建 Agent</h2>
             <div className="space-y-3">
               <input
@@ -97,7 +101,8 @@ export default function AgentsPage() {
               <button
                 onClick={createAgent}
                 disabled={saving || !form.name.trim()}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 transition-colors"
+                style={{ background: 'var(--c-primary)' }}
               >
                 {saving ? '创建中...' : '确认创建'}
               </button>
@@ -108,7 +113,11 @@ export default function AgentsPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border p-6">
+              <div
+                key={i}
+                className="rounded-xl border p-6"
+                style={{ background: 'var(--c-surface)', borderColor: 'var(--c-border)' }}
+              >
                 <div className="skeleton h-5 w-32 mb-3" />
                 <div className="skeleton h-4 w-full mb-2" />
                 <div className="skeleton h-4 w-3/4" />
@@ -118,9 +127,11 @@ export default function AgentsPage() {
         ) : agents.length === 0 ? (
           <div className="py-16 text-center">
             <div className="text-4xl mb-3">🤖</div>
-            <p className="text-gray-400 text-sm">暂无可用 Agent</p>
+            <p className="text-sm" style={{ color: 'var(--c-text-secondary)' }}>暂无可用 Agent</p>
             {isAdmin && (
-              <p className="text-gray-400 text-xs mt-1">点击上方「新建 Agent」按钮创建</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--c-text-tertiary)' }}>
+                点击上方「新建 Agent」按钮创建
+              </p>
             )}
           </div>
         ) : (
@@ -129,20 +140,29 @@ export default function AgentsPage() {
               <button
                 key={agent.id}
                 onClick={() => router.push(`/agents/${agent.id}`)}
-                className="bg-white rounded-xl border p-6 text-left hover:shadow-md hover:border-blue-200 transition-all"
+                className="rounded-xl border p-6 text-left hover:shadow-md transition-all"
+                style={{
+                  background: 'var(--c-surface)',
+                  borderColor: 'var(--c-border)',
+                }}
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+                    style={{ background: 'var(--c-primary-subtle)' }}
+                  >
                     🤖
                   </div>
                   <div>
                     <div className="font-semibold text-sm">{agent.name}</div>
                     {agent.description && (
-                      <div className="text-xs text-gray-400">{agent.description}</div>
+                      <div className="text-xs" style={{ color: 'var(--c-text-secondary)' }}>
+                        {agent.description}
+                      </div>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-400">
+                <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--c-text-tertiary)' }}>
                   <span>top_k={agent.top_k}</span>
                   <span>阈值={agent.threshold}%</span>
                 </div>
