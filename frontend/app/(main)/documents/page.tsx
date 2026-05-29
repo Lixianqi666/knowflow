@@ -29,9 +29,6 @@ export default function DocumentsPage() {
         .catch((e) => console.error('加载知识库列表失败', e));
     }
   }, [token]);
-  useEffect(() => {
-    if (kbs.length > 0 && !currentKbId) setCurrentKbId(kbs[0].id);
-  }, [kbs]);
 
   const createKb = async () => {
     if (!newKbName.trim()) return;
@@ -115,6 +112,7 @@ export default function DocumentsPage() {
                     backgroundPosition: 'right 10px center',
                   }}
                 >
+                  <option value="">全部</option>
                   {kbs.map((kb) => (
                     <option key={kb.id} value={kb.id}>
                       {kb.name}

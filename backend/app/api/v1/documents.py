@@ -237,13 +237,14 @@ async def document_stats(
     db: AsyncSession = Depends(get_db),
     kb_id: str | None = None,
 ):
+    # 先获取用户有权限的文档 ID 子查询
     if user.role == "admin":
-        base = select(Document.status)
+        perm_q = select(Document.id)
         if kb_id:
-            base = base.where(Document.kb_id == kb_id)
+            perm_q = perm_q.where(Document.kb_id == kb_id)
     else:
-        base = (
-            select(Document.status)
+        perm_q = (
+            select(Document.id)
             .outerjoin(
                 DocumentPermission,
                 (DocumentPermission.document_id == Document.id)
@@ -260,14 +261,18 @@ async def document_stats(
             .distinct()
         )
         if kb_id:
-            base = base.where(Document.kb_id == kb_id)
+            perm_q = perm_q.where(Document.kb_id == kb_id)
 
+    # 用有权限的文档 ID 子查询做统计
+    allowed = perm_q.subquery()
     stats = await db.execute(
         select(
             func.count().label("all"),
             func.sum(case((Document.status == "indexed", 1), else_=0)).label("indexed"),
             func.sum(case((Document.status == "processing", 1), else_=0)).label("processing"),
-        ).select_from(base.subquery())
+        )
+        .where(Document.id.in_(select(allowed.c.id)))
+        .select_from(Document)
     )
     row = stats.one()
     return {
