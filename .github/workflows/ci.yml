@@ -63,6 +63,7 @@ jobs:
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
+          ignorefile: '.trivyignore.yaml'
 
   trivy-image-scan:
     runs-on: ubuntu-latest
@@ -78,6 +79,7 @@ jobs:
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
+          ignorefile: '.trivyignore.yaml'
       - name: Trivy frontend image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -86,3 +88,4 @@ jobs:
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
+          ignorefile: '.trivyignore.yaml'
