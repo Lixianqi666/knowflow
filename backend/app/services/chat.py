@@ -10,13 +10,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.hooks import trigger as trigger_hooks
 from app.core.llm import llm_service
-from app.core.prompts import NO_CONTEXT_SYSTEM, RAG_SYSTEM, build_messages, parse_rag_response
+from app.core.prompts import (
+    NO_CONTEXT_SYSTEM,
+    RAG_SYSTEM,
+    RetrievedChunk,
+    build_messages,
+    format_goal_context,
+    format_retrieved_context,
+    parse_rag_response,
+)
 from app.models.conversation import Conversation, Message
 from app.models.prompt_template import PromptTemplate
 from app.services.retrieval import RetrievalService
 from app.services.rewriter import rewrite as rewrite_query
 
 logger = logging.getLogger(__name__)
+
+GOAL_UPDATE_PROMPT = """分析以下对话，更新目标状态。返回 JSON：
+{{"goal_summary": "进展摘要，一句话", "missing_info": ["缺失信息1"], "goal_status": "active|blocked|done"}}
+
+规则：
+- goal_status: active=进行中, blocked=缺少关键信息, done=已完成
+- missing_info: 列出还需要用户提供的关键信息
+- 只返回 JSON，不要其他内容
+
+当前目标：{goal}
+对话历史：
+{history}
+用户最新消息：{user_message}
+助手回复：{assistant_reply}"""
 
 
 class ChatService:
@@ -33,15 +55,14 @@ class ChatService:
         user_id: str,
         is_admin: bool = False,
         template_id: str | None = None,
+        goal: str | None = None,
     ) -> AsyncGenerator[str, None]:
         try:
             async for event in self._do_stream(
-                conversation_id, user_message, user_id, is_admin, template_id
+                conversation_id, user_message, user_id, is_admin, template_id, goal
             ):
                 yield event
         except Exception as e:
-            import logging
-
             logging.getLogger(__name__).exception(f"stream_chat异常: {e}")
             msg = str(e).lower()
             if "insufficient" in msg or "balance" in msg:
@@ -65,12 +86,22 @@ class ChatService:
         user_id: str,
         is_admin: bool = False,
         template_id: str | None = None,
+        goal: str | None = None,
     ) -> AsyncGenerator[str, None]:
         top_k = settings.RETRIEVAL_TOP_K
         threshold = settings.RETRIEVAL_THRESHOLD
         rerank_top_k = settings.RETRIEVAL_RERANK_TOP_K
         system_prompt = RAG_SYSTEM
         tmpl = None
+
+        # 获取对话并处理 goal
+        conv = await self.db.get(Conversation, conversation_id)
+        if not conv:
+            raise ValueError("对话不存在")
+
+        if goal and not conv.goal:
+            conv.goal = goal
+            await self.db.flush()
 
         if template_id:
             try:
@@ -131,7 +162,6 @@ class ChatService:
 
         if tmpl and tmpl.is_active:
             if has_context:
-                # 模板的 system_prompt 作为角色设定，RAG_SYSTEM 的规则作为强制约束
                 role = tmpl.system_prompt or "你是KnowFlow智能助手。"
                 system_prompt = f"{role}\n\n{RAG_SYSTEM}"
             else:
@@ -139,33 +169,44 @@ class ChatService:
                 if sp:
                     system_prompt = sp
 
-        context_text = (
-            "\n\n---\n\n".join(f"[{c.document_title}]\n{c.content}" for c in chunks)
-            if chunks
-            else "未找到相关文档内容。"
+        context_text = format_retrieved_context(
+            [RetrievedChunk(title=c.document_title, content=c.content) for c in chunks]
         )
 
+        # 构造 goal_context（独立于检索文档）
+        goal_context = None
+        if conv.goal:
+            goal_context = format_goal_context(
+                goal=conv.goal,
+                goal_summary=conv.goal_summary or "",
+                missing_info=conv.missing_info or [],
+            )
+
         if not has_context:
-            messages = build_messages(system_prompt, history=history_msgs, question=search_query)
+            messages = build_messages(
+                system_prompt, history=history_msgs, question=search_query, goal_context=goal_context
+            )
         else:
             messages = build_messages(
-                system_prompt, context=context_text, history=history_msgs, question=search_query
+                system_prompt,
+                context=context_text,
+                history=history_msgs,
+                question=search_query,
+                goal_context=goal_context,
             )
 
         # 4. 流式生成（检测 JSON 边界后截断）
         _t1 = time.time()
         full_response = ""
-        streamed_text = ""  # 实际发送给前端的完整文本
+        streamed_text = ""
         json_started = False
         async for chunk in llm_service.stream_chat(messages):
             if json_started:
                 full_response += chunk
                 continue
             full_response += chunk
-            # 检测 JSON 块开始（```json 或 单独一行的 {）
             if "```json" in full_response or re.search(r"\n\s*\{", full_response):
                 json_started = True
-                # 只输出 JSON 之前的文本
                 if "```json" in full_response:
                     text_part = full_response.split("```json")[0]
                 else:
@@ -177,7 +218,7 @@ class ChatService:
             streamed_text += chunk
             yield json.dumps({"type": "token", "data": chunk}, ensure_ascii=False)
 
-        # 5. 结构化解析（仅用于发送 structured 事件，不影响持久化文本）
+        # 5. 结构化解析
         if has_context:
             try:
                 parsed = parse_rag_response(full_response)
@@ -197,7 +238,6 @@ class ChatService:
             except Exception:
                 pass
 
-        # 持久化文本 = 实际发送给前端的文本（清理多余空行即可）
         display_text = re.sub(r"\[来源:\s*[^\]]+\]", "", streamed_text)
         display_text = re.sub(r"\n{3,}", "\n\n", display_text).strip()
 
@@ -220,10 +260,54 @@ class ChatService:
         await self.db.flush()
         yield json.dumps({"type": "done"}, ensure_ascii=False)
 
-        # 7. 自动标题
+        # 7. 异步更新 goal 状态（不阻塞主流程）
+        if conv.goal:
+            try:
+                await self._update_goal_state(conv, user_message, display_text, history_msgs)
+            except Exception:
+                pass
+
+        # 8. 自动标题
         try:
             await self._auto_title(conversation_id, user_message)
         except Exception:
+            pass
+
+    async def _update_goal_state(
+        self,
+        conv: Conversation,
+        user_message: str,
+        assistant_reply: str,
+        history: list[dict],
+    ) -> None:
+        """调用 LLM 更新 goal_summary / missing_info / goal_status"""
+        history_text = "\n".join(
+            f"{'用户' if m['role'] == 'user' else '助手'}: {m['content'][:100]}"
+            for m in history[-6:]
+        )
+        prompt = GOAL_UPDATE_PROMPT.format(
+            goal=conv.goal,
+            history=history_text,
+            user_message=user_message[:200],
+            assistant_reply=assistant_reply[:200],
+        )
+        try:
+            result = await llm_service.complete(
+                [{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=200,
+                timeout=10,
+            )
+            data = json.loads(result)
+            if isinstance(data, dict):
+                conv.goal_summary = data.get("goal_summary", conv.goal_summary)
+                missing = data.get("missing_info")
+                if isinstance(missing, list):
+                    conv.missing_info = missing
+                status = data.get("goal_status")
+                if status in ("active", "blocked", "done"):
+                    conv.goal_status = status
+        except (json.JSONDecodeError, Exception):
             pass
 
     async def _auto_title(self, conversation_id: str, user_message: str) -> None:

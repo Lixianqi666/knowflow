@@ -76,18 +76,27 @@ docker compose up -d --build
 # https://localhost（自签名证书，浏览器需确认安全例外）
 ```
 
-### 本地开发
+### Docker 本地开发
+
+本项目本地开发、测试、构建统一通过 Docker 执行，不要在宿主机安装依赖。
 
 ```bash
-# 后端
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+# 首次启动（构建并启动所有服务）
+docker compose up -d --build
 
-# 前端
-cd frontend
-npm install
-npm run dev
+# 查看日志
+docker compose logs -f backend
+docker compose logs -f worker
+docker compose logs -f frontend
+
+# 重建后端（代码变更后）
+docker compose build backend worker && docker compose up -d backend worker
+
+# 重建前端
+docker compose build frontend && docker compose up -d frontend
+
+# 停止
+docker compose down
 ```
 
 ## 核心流程
@@ -202,13 +211,27 @@ knowflow/
 
 ## 测试
 
+**所有测试和构建必须通过 Docker 执行，不要在宿主机安装依赖。**
+
 ```bash
+# 一键验证（推荐）
+sh scripts/verify-docker.sh
+
 # 后端测试
-cd backend && TESTING=1 pytest tests/ -v
+docker compose build backend
+docker compose up -d postgres redis
+docker compose run --rm backend sh -c "TESTING=1 pytest tests/ -v"
+docker compose down
 
 # 前端测试
-cd frontend && npm test
+docker build --target test -t knowflow-frontend-test ./frontend
+docker run --rm knowflow-frontend-test sh -c "npm run test"
+
+# 前端构建
+docker compose build frontend
 ```
+
+CI 使用 GitHub Actions，所有 job 均在 Docker 内运行，Trivy 扫描 HIGH/CRITICAL 漏洞会阻断构建。
 
 ## 文档
 

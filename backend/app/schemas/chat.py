@@ -6,10 +6,12 @@ from pydantic import BaseModel
 
 class ConversationCreate(BaseModel):
     title: str | None = None
+    goal: str | None = None
 
 
 class ConversationUpdate(BaseModel):
-    title: str
+    title: str | None = None
+    goal: str | None = None
 
 
 class ConversationOut(BaseModel):
@@ -17,6 +19,10 @@ class ConversationOut(BaseModel):
     title: str | None
     is_pinned: bool = False
     pinned_at: datetime | None = None
+    goal: str | None = None
+    goal_summary: str | None = None
+    goal_status: str = "active"
+    missing_info: list = []
     created_at: datetime
     updated_at: datetime
 
@@ -27,6 +33,7 @@ class ConversationOut(BaseModel):
 class MessageCreate(BaseModel):
     content: str
     template_id: str | None = None
+    goal: str | None = None
 
 
 class MessageOut(BaseModel):

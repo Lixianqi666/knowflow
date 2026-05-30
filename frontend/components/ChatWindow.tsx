@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import MessageBubble from './MessageBubble';
 import InputBox from './InputBox';
 import SourceViewer from './SourceViewer';
+import GoalBar from './GoalBar';
 import { MessageSquare } from 'lucide-react';
 import { Message, Conversation } from '@/lib/store';
 
@@ -34,11 +35,13 @@ export default function ChatWindow() {
     messages,
     addMessage,
     updateLastAssistant,
+    resetLastAssistant,
     streaming,
     setStreaming,
     currentConvId,
     setCurrentConvId,
     setConversations,
+    conversations,
     sources,
     setSources,
     chatError,
@@ -56,6 +59,16 @@ export default function ChatWindow() {
   const abortRef = useRef<AbortController | null>(null);
   const sendingRef = useRef(false);
   const messagesConvIdRef = useRef<string | null>(null);
+  const [pendingGoal, setPendingGoal] = useState<string | null>(null);
+
+  const currentConversation = conversations.find((c) => c.id === currentConvId);
+
+  // 切换到已有对话时清理 pendingGoal
+  useEffect(() => {
+    if (currentConvId) {
+      setPendingGoal(null);
+    }
+  }, [currentConvId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -68,15 +81,12 @@ export default function ChatWindow() {
       return;
     }
     if (streaming || sendingRef.current) return;
-    // 消息已属于当前对话（流式收到或缓存命中），跳过 API 获取
     if (messages.length > 0 && messagesConvIdRef.current === currentConvId) return;
 
-    // 有缓存时直接使用，不显示加载状态
     const cached = messagesCache[currentConvId];
     if (cached) {
       setMessages(cached);
       messagesConvIdRef.current = currentConvId;
-      // 后台静默刷新
       api
         .get<ApiMessage[]>(`/chat/conversations/${currentConvId}/messages`)
         .then((msgs) => {
@@ -89,7 +99,6 @@ export default function ChatWindow() {
       return;
     }
 
-    // 无缓存时显示加载状态
     setLoadingMessages(true);
     api
       .get<ApiMessage[]>(`/chat/conversations/${currentConvId}/messages`)
@@ -103,6 +112,66 @@ export default function ChatWindow() {
       .finally(() => setLoadingMessages(false));
   }, [currentConvId, streaming]);
 
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [1000, 2000, 4000];
+
+  /** 读取一个 SSE 流，返回是否收到 done 及服务端错误。没收到 done 且无服务端错误视为中断。 */
+  const consumeStream = async (
+    stream: ReadableStream,
+    signal: AbortSignal,
+  ): Promise<{ receivedDone: boolean; serverError?: string }> => {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let receivedDone = false;
+    let serverError: string | undefined;
+
+    // abort 时立即 cancel reader，让阻塞中的 read() 抛出
+    const onAbort = () => { reader.cancel().catch(() => {}); };
+    signal.addEventListener('abort', onAbort, { once: true });
+
+    try {
+      const processLine = (line: string) => {
+        if (!line.startsWith('data: ')) return;
+        try {
+          const event = JSON.parse(line.slice(6));
+          if (event.type === 'token') {
+            setWaitingFirstToken(false);
+            updateLastAssistant(event.data);
+          } else if (event.type === 'sources') {
+            setSources(event.data);
+          } else if (event.type === 'error') {
+            serverError = event.data;
+            setChatError(event.data);
+          } else if (event.type === 'done') {
+            receivedDone = true;
+          }
+        } catch {
+          // SSE 帧解析失败跳过
+        }
+      };
+
+      while (true) {
+        if (signal.aborted) break;
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) processLine(line);
+      }
+      if (buffer.trim()) processLine(buffer);
+    } finally {
+      signal.removeEventListener('abort', onAbort);
+    }
+
+    // 服务端业务错误不视为网络中断
+    if (!receivedDone && !signal.aborted && !serverError) {
+      throw new Error('流式响应中断');
+    }
+    return { receivedDone, serverError };
+  };
+
   const handleSend = async (content: string) => {
     const controller = new AbortController();
     abortRef.current = controller;
@@ -115,52 +184,68 @@ export default function ChatWindow() {
     setWaitingFirstToken(true);
     sendingRef.current = true;
 
+    const activeGoal = currentConvId
+      ? (currentConversation?.goal || undefined)
+      : (pendingGoal || undefined);
+
     try {
       let convId = currentConvId;
       if (!convId) {
         const conv = await api.post<{ id: string }>('/chat/conversations', {
           title: content.slice(0, 30),
+          goal: pendingGoal || undefined,
         });
         convId = conv.id;
         setCurrentConvId(convId);
         messagesConvIdRef.current = convId;
-        // 用 history.replaceState 替代 router.replace，避免 ChatWindow 卸载重挂导致流式状态丢失
         window.history.replaceState(null, '', `/chat/${convId}`);
         setConversations(await api.get<Conversation[]>('/chat/conversations'));
+        setPendingGoal(null);
       }
-      const stream = await api.streamChat(convId!, content, controller.signal);
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      const processLine = (line: string) => {
-        if (!line.startsWith('data: ')) return;
-        try {
-          const event = JSON.parse(line.slice(6));
-          if (event.type === 'token') {
-            setWaitingFirstToken(false);
-            updateLastAssistant(event.data);
-          } else if (event.type === 'sources') {
-            setSources(event.data);
-          } else if (event.type === 'error') {
-            setChatError(event.data);
-          }
-        } catch {
-          // SSE 事件解析失败，跳过该帧
-        }
-      };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) processLine(line);
+      // 带重试的流式请求
+      let lastError: Error | null = null;
+      let succeeded = false;
+      let serverErrorOccurred = false;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (controller.signal.aborted) break;
+
+        try {
+          // 重试前清空半截 assistant 内容
+          if (attempt > 0) {
+            resetLastAssistant();
+          }
+          const stream = await api.streamChat(
+            convId!, content, controller.signal, undefined, activeGoal,
+          );
+          const result = await consumeStream(stream, controller.signal);
+          // 服务端业务错误不重试
+          if (result.serverError) {
+            serverErrorOccurred = true;
+            break;
+          }
+          succeeded = true;
+          lastError = null;
+          break;
+        } catch (err: any) {
+          if (controller.signal.aborted) throw err;
+          lastError = err;
+
+          if (attempt < MAX_RETRIES && !controller.signal.aborted) {
+            setChatError('连接中断，正在重试...');
+            setWaitingFirstToken(true);
+            await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
+          }
+        }
       }
-      // 处理缓冲区中剩余的最后一帧
-      if (buffer.trim()) processLine(buffer);
+
+      if (!succeeded && !serverErrorOccurred && lastError && !controller.signal.aborted) {
+        setChatError(`回答中断: ${lastError.message}`);
+      }
     } catch (err: any) {
-      if (err.name !== 'AbortError') setChatError(err.message);
+      if (err.name !== 'AbortError' && !controller.signal.aborted) {
+        setChatError(err.message);
+      }
     } finally {
       sendingRef.current = false;
       setStreaming(false);
@@ -169,7 +254,7 @@ export default function ChatWindow() {
       api
         .get<Conversation[]>('/chat/conversations')
         .then(setConversations)
-        .catch((e) => console.error('加载消息失败', e));
+        .catch((e) => console.error('加载对话失败', e));
     }
   };
 
@@ -190,6 +275,23 @@ export default function ChatWindow() {
     <div className="flex flex-col h-screen" style={{ background: 'var(--c-bg)' }}>
       <div className="flex-1 overflow-y-auto px-4 md:px-6">
         <div className="max-w-3xl mx-auto py-6">
+          {/* 目标状态条 */}
+          <GoalBar
+            conversation={currentConversation}
+            pendingGoal={pendingGoal}
+            onGoalChange={(goal) => {
+              if (currentConvId) {
+                setConversations(
+                  conversations.map((c) =>
+                    c.id === currentConvId ? { ...c, goal, goal_status: 'active', goal_summary: null, missing_info: [] } : c
+                  )
+                );
+              } else {
+                setPendingGoal(goal);
+              }
+            }}
+          />
+
           {messages.length > 0 ? (
             <>
               {messages.map((msg, i) => (

@@ -28,6 +28,10 @@ export interface Conversation {
   title: string;
   is_pinned: boolean;
   pinned_at: string | null;
+  goal: string | null;
+  goal_summary: string | null;
+  goal_status: string;
+  missing_info: string[];
   created_at: string;
   updated_at: string;
 }
@@ -68,6 +72,7 @@ interface Store {
   messagesCache: Record<string, Message[]>; // 按对话ID缓存消息
   addMessage: (msg: Message) => void;
   updateLastAssistant: (content: string) => void;
+  resetLastAssistant: () => void;
   setMessages: (msgs: Message[]) => void;
   setCachedMessages: (convId: string, msgs: Message[]) => void;
 
@@ -199,6 +204,15 @@ export const useStore = create<Store>((set, get) => ({
       const last = msgs[msgs.length - 1];
       if (last && last.role === 'assistant') {
         msgs[msgs.length - 1] = { ...last, content: last.content + content };
+      }
+      return { messages: msgs };
+    }),
+  resetLastAssistant: () =>
+    set((s) => {
+      const msgs = [...asArray<Message>(s.messages)];
+      const last = msgs[msgs.length - 1];
+      if (last && last.role === 'assistant') {
+        msgs[msgs.length - 1] = { ...last, content: '' };
       }
       return { messages: msgs };
     }),

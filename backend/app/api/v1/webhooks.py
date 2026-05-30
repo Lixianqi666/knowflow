@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_admin
+from app.core.url_validator import URLError, validate_webhook_url
 from app.database import get_db
 from app.models.user import User
 from app.models.webhook import Webhook
@@ -51,6 +52,10 @@ async def create_webhook(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    try:
+        validate_webhook_url(data.url)
+    except URLError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     h = Webhook(
         name=data.name, url=data.url, secret=data.secret, events=data.events, created_by=admin.id
     )
@@ -69,6 +74,11 @@ async def update_webhook(
     h = await db.get(Webhook, hook_id)
     if not h:
         raise HTTPException(404, "Webhook 不存在")
+    if data.url is not None:
+        try:
+            validate_webhook_url(data.url)
+        except URLError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(h, k, v)
     await db.flush()

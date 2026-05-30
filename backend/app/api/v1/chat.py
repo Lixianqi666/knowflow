@@ -78,7 +78,7 @@ async def create_conversation(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    conv = Conversation(user_id=user.id, title=data.title or "新对话")
+    conv = Conversation(user_id=user.id, title=data.title or "新对话", goal=data.goal)
     db.add(conv)
     await db.flush()
     return conv
@@ -94,7 +94,14 @@ async def update_conversation(
     conv = await db.get(Conversation, conv_id)
     if not conv or conv.user_id != user.id:
         raise HTTPException(status_code=404, detail="对话不存在")
-    conv.title = data.title
+    if data.title is not None:
+        conv.title = data.title
+    if data.goal is not None:
+        conv.goal = data.goal
+        if data.goal:
+            conv.goal_status = "active"
+            conv.goal_summary = None
+            conv.missing_info = []
     await db.flush()
     return conv
 
@@ -238,6 +245,7 @@ async def send_message(
                     str(user.id),
                     user.role == "admin",
                     template_id=data.template_id,
+                    goal=data.goal,
                 ):
                     yield f"data: {event}\n\n"
                 await db.commit()

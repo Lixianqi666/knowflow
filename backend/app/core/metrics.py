@@ -3,6 +3,7 @@ import time
 from fastapi import Request, Response
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.routing import Match
 
 http_requests_total = Counter("http_requests_total", "总请求数", ["method", "endpoint", "status"])
 http_request_duration_seconds = Histogram(
@@ -31,21 +32,34 @@ llm_request_duration_seconds = Histogram(
 )
 
 
+def _get_endpoint_template(request: Request) -> str:
+    """优先使用路由模板，fallback 到原始 path"""
+    try:
+        for route in request.app.routes:
+            match, _ = route.matches(request.scope)
+            if match == Match.FULL and hasattr(route, "path"):
+                return route.path
+    except Exception:
+        pass
+    return request.url.path
+
+
 class MetricsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         method = request.method
-        path = request.url.path
+        endpoint = _get_endpoint_template(request)
 
         http_requests_in_progress.labels(method=method).inc()
         start = time.time()
+        status_code = 500
         try:
             response = await call_next(request)
+            status_code = response.status_code
             return response
         finally:
             elapsed = time.time() - start
-            status = response.status_code if "response" in dir() else 500
-            http_requests_total.labels(method=method, endpoint=path, status=status).inc()
-            http_request_duration_seconds.labels(method=method, endpoint=path).observe(elapsed)
+            http_requests_total.labels(method=method, endpoint=endpoint, status=status_code).inc()
+            http_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(elapsed)
             http_requests_in_progress.labels(method=method).dec()
 
 

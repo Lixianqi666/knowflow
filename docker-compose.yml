@@ -19,6 +19,12 @@ services:
         limits:
           cpus: '0.5'
           memory: 1G
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:7-alpine
@@ -31,6 +37,12 @@ services:
         limits:
           cpus: '0.2'
           memory: 256M
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   backend:
     image: knowflow-fastapi:latest
@@ -69,6 +81,12 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   worker:
     image: knowflow-ai-worker:latest
@@ -104,6 +122,12 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     image: knowflow-frontend:latest
@@ -123,11 +147,18 @@ services:
         limits:
           cpus: '0.3'
           memory: 256M
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   nginx:
     image: nginx:1.27-alpine
     volumes:
       - nginx_ssl:/etc/nginx/ssl
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
     ports:
       - "80:80"
       - "443:443"
@@ -146,6 +177,12 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   prometheus:
     image: prom/prometheus:v2.51.0
@@ -165,6 +202,12 @@ services:
         limits:
           cpus: '0.2'
           memory: 256M
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   grafana:
     image: grafana/grafana:10.4.0
@@ -185,6 +228,12 @@ services:
         limits:
           cpus: '0.2'
           memory: 256M
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   db-backup:
     image: postgres:16-alpine
@@ -193,6 +242,10 @@ services:
       - backups:/backups
     environment:
       PGPASSWORD: ${DB_PASSWORD:-knowflow}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: knowflow
+      POSTGRES_USER: knowflow
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
     entrypoint: /bin/sh
     command: >
@@ -207,6 +260,12 @@ services:
         limits:
           cpus: '0.1'
           memory: 128M
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   pgdata:

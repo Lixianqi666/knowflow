@@ -169,9 +169,14 @@ async def admin_headers(client: AsyncClient):
     resp = await client.post(
         "/api/v1/auth/register", json={"email": email, "password": password, "name": "Admin"}
     )
-    assert resp.status_code == 200, f"注册失败: {resp.text}"
-    token = resp.json()["access_token"]
-    user_id = resp.json()["user"]["id"]
+    if resp.status_code == 200:
+        token = resp.json()["access_token"]
+        user_id = resp.json()["user"]["id"]
+    else:
+        resp = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
+        assert resp.status_code == 200, f"登录失败: {resp.text}"
+        token = resp.json()["access_token"]
+        user_id = resp.json()["user"]["id"]
     # 直接在数据库中提升为管理员
     async with _session_factory() as session:
         await session.execute(

@@ -49,6 +49,7 @@ async def auto_generate_title(
             ],
             temperature=0.1,
             max_tokens=20,
+            timeout=30,
         )
         if settings.LLM_API_KEY:
             kwargs["api_key"] = settings.LLM_API_KEY

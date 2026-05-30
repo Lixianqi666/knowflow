@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { api, API_URL } from '@/lib/api';
+import { api } from '@/lib/api';
 
 interface Chunk {
   id: string;
@@ -19,6 +19,8 @@ export default function SourceViewer({ documentId, highlightChunkId, onClose }: 
   const [doc, setDoc] = useState<{ title: string; content: string } | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,6 +44,27 @@ export default function SourceViewer({ documentId, highlightChunkId, onClose }: 
     }
   }, [loading, chunks]);
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    setDownloadError(null);
+    let url: string | null = null;
+    try {
+      const blob = await api.download(`/documents/${documentId}/file`);
+      url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc?.title || documentId;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      setDownloadError('下载失败，请稍后重试');
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+      setDownloading(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in"
@@ -56,12 +79,10 @@ export default function SourceViewer({ documentId, highlightChunkId, onClose }: 
           <h2 className="font-semibold truncate">{doc?.title || '加载中...'}</h2>
           <div className="flex items-center gap-2">
             {doc && (
-              <a
-                href={`${API_URL}/documents/${documentId}/file`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                onClick={(e) => e.stopPropagation()}
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -71,14 +92,17 @@ export default function SourceViewer({ documentId, highlightChunkId, onClose }: 
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                   />
                 </svg>
-                下载原文
-              </a>
+                {downloading ? '下载中...' : '下载原文'}
+              </button>
             )}
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
               ✕
             </button>
           </div>
         </div>
+        {downloadError && (
+          <div className="px-4 py-2 text-xs text-red-600 bg-red-50 border-b">{downloadError}</div>
+        )}
         {/* 内容区 */}
         <div className="p-6 overflow-y-auto flex-1">
           {loading ? (

@@ -5,7 +5,7 @@ import json
 import logging
 
 import httpx
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.webhook import Webhook
@@ -13,15 +13,19 @@ from app.models.webhook import Webhook
 logger = logging.getLogger(__name__)
 
 
+def _matches_event(events_str: str, target_event: str) -> bool:
+    """精确匹配事件名，不允许前缀/后缀模糊命中"""
+    for e in events_str.split(","):
+        if e.strip() == target_event:
+            return True
+    return False
+
+
 async def dispatch(db: AsyncSession, event: str, payload: dict):
     """向所有订阅了该事件的活跃 webhook 发送通知"""
-    result = await db.execute(
-        select(Webhook).where(
-            Webhook.is_active.is_(True),
-            text(f"events ~ '(^|,){event}(,|$)'"),
-        )
-    )
-    hooks = result.scalars().all()
+    result = await db.execute(select(Webhook).where(Webhook.is_active.is_(True)))
+    all_hooks = result.scalars().all()
+    hooks = [h for h in all_hooks if _matches_event(h.events, event)]
     if not hooks:
         return
 
