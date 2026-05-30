@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useStore } from '@/lib/store';
 
 describe('Store', () => {
@@ -31,7 +31,8 @@ describe('Store', () => {
     expect(state.user).toEqual({ id: '1', name: '测试' });
   });
 
-  it('logout 清除所有认证状态', () => {
+  it('logout 清除所有认证状态，不发请求', () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     useStore.getState().setAuth('token', { id: '1' });
     useStore.getState().addMessage({ role: 'user', content: 'hi' });
     useStore.getState().logout();
@@ -41,6 +42,9 @@ describe('Store', () => {
     expect(state.user).toBeNull();
     expect(state.messages).toEqual([]);
     expect(state.conversations).toEqual([]);
+    // store.logout 不应发任何请求
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 
   it('addMessage 追加消息', () => {

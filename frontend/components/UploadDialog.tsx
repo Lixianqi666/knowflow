@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { toast } from '@/components/Toast';
 import { Upload, File, X } from 'lucide-react';
+
+const ALLOWED_EXTENSIONS = ['.txt', '.md', '.markdown', '.pdf', '.docx', '.xlsx'];
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 interface Props {
   open: boolean;
@@ -42,8 +44,42 @@ export default function UploadDialog({ open, onClose, onUploaded, kbId }: Props)
 
   if (!visible) return null;
 
+  const validateFile = (f: File): string | null => {
+    const ext = '.' + f.name.split('.').pop()?.toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return `不支持的文件格式: ${ext}`;
+    }
+    if (f.size > MAX_FILE_SIZE) {
+      return `文件过大，最大 20MB`;
+    }
+    return null;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] || null;
+    if (!f) {
+      setFile(null);
+      setResult(null);
+      return;
+    }
+    const error = validateFile(f);
+    if (error) {
+      setFile(null);
+      setResult({ ok: false, msg: error });
+      if (inputRef.current) inputRef.current.value = '';
+      return;
+    }
+    setFile(f);
+    setResult(null);
+  };
+
   const handleUpload = async () => {
     if (!file) return;
+    const error = validateFile(file);
+    if (error) {
+      setResult({ ok: false, msg: error });
+      return;
+    }
     setUploading(true);
     setProgress(0);
     setResult(null);
@@ -130,10 +166,7 @@ export default function UploadDialog({ open, onClose, onUploaded, kbId }: Props)
             ref={inputRef}
             type="file"
             accept=".txt,.md,.markdown,.pdf,.docx,.xlsx"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] || null);
-              setResult(null);
-            }}
+            onChange={handleFileChange}
             className="hidden"
           />
         </label>

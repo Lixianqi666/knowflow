@@ -16,7 +16,7 @@ class LLMService:
             self.model = f"openai/{self.model}"
 
     async def stream_chat(self, messages: list[dict]) -> AsyncGenerator[str, None]:
-        kwargs = dict(model=self.model, messages=messages, temperature=0.0, stream=True)
+        kwargs = dict(model=self.model, messages=messages, temperature=0.0, stream=True, timeout=30)
         if self.api_key:
             kwargs["api_key"] = self.api_key
         if self.api_base:
@@ -27,8 +27,9 @@ class LLMService:
             if delta:
                 yield delta
 
-    async def complete(self, messages: list[dict]) -> str:
-        kwargs = dict(model=self.model, messages=messages, temperature=0.0)
+    async def complete(self, messages: list[dict], **overrides) -> str:
+        kwargs = dict(model=self.model, messages=messages, temperature=0.0, timeout=30)
+        kwargs.update(overrides)
         if self.api_key:
             kwargs["api_key"] = self.api_key
         if self.api_base:

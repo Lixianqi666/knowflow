@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import logging
+import uuid
 
 from sqlalchemy import delete, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -22,6 +23,9 @@ from app.pipeline.chunker import chunker
 from app.pipeline.indexer import _build_tsvector
 
 logger = logging.getLogger(__name__)
+
+LOCK_KEY_PREFIX = "lock:index_document:"
+LOCK_TTL = 600
 
 
 async def _index(document_id: str):
@@ -94,11 +98,55 @@ async def _index(document_id: str):
         await engine.dispose()
 
 
+_FALLBACK_TOKEN = "__fallback__"
+
+_RELEASE_LUA = "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end"
+
+
+async def _acquire_lock(document_id: str) -> str | None:
+    """获取 Redis 幂等锁，返回 token 表示成功，None 表示已有任务在处理"""
+    token = uuid.uuid4().hex
+    try:
+        from app.core.ratelimit import get_redis
+
+        r = await get_redis()
+        ok = await r.set(f"{LOCK_KEY_PREFIX}{document_id}", token, nx=True, ex=LOCK_TTL)
+        return token if ok else None
+    except Exception as e:
+        logger.warning(f"Redis 锁获取异常，允许继续索引: {e}")
+        return _FALLBACK_TOKEN
+
+
+async def _release_lock(document_id: str, token: str):
+    """释放 Redis 幂等锁，仅当 token 匹配时才删除"""
+    if token == _FALLBACK_TOKEN:
+        return
+    try:
+        from app.core.ratelimit import get_redis
+
+        r = await get_redis()
+        await r.eval(_RELEASE_LUA, 1, f"{LOCK_KEY_PREFIX}{document_id}", token)
+    except Exception as e:
+        logger.warning(f"Redis 锁释放异常: {e}")
+
+
+async def _index_with_lock(document_id: str):
+    """带幂等锁的索引入口"""
+    token = await _acquire_lock(document_id)
+    if token is None:
+        logger.info(f"文档 {document_id} 已有索引任务在处理，跳过")
+        return
+    try:
+        await _index(document_id)
+    finally:
+        await _release_lock(document_id, token)
+
+
 @celery_app.task(name="index_document", bind=True, max_retries=2, default_retry_delay=30)
 def index_document_task(self, document_id: str):
     """Celery 入口：运行异步索引"""
     try:
-        asyncio.run(_index(document_id))
+        asyncio.run(_index_with_lock(document_id))
     except Exception as e:
         logger.exception(f"文档索引失败: {e}")
         raise self.retry(exc=e)

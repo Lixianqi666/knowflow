@@ -16,6 +16,10 @@ class Conversation(Base):
     title = Column(String(255))
     is_pinned = Column(Boolean, default=False, nullable=False)
     pinned_at = Column(DateTime(timezone=True), nullable=True)
+    goal = Column(Text, nullable=True)
+    goal_summary = Column(Text, nullable=True)
+    goal_status = Column(String(20), default="active", nullable=False)
+    missing_info = Column(JSONB, default=list)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),

@@ -517,7 +517,8 @@ export default function Sidebar() {
               </div>
             </div>
             <button
-              onClick={() => {
+              onClick={async () => {
+                await api.logout();
                 logout();
                 router.push('/login');
               }}

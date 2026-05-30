@@ -16,4 +16,7 @@ RUN useradd -m -u 1001 app && \
     mkdir -p /app/uploads /app/hf_cache && \
     chown -R app:app /app/uploads /app/hf_cache && \
     chmod 755 /app/uploads /app/hf_cache
+
+USER app
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

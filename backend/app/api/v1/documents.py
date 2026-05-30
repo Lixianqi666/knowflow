@@ -29,20 +29,53 @@ router = APIRouter(prefix="/documents", tags=["文档"])
 ALLOWED_EXT = set(settings.ALLOWED_EXTENSIONS.split(","))
 
 
+def _permission_allows(permission: str, required: str) -> bool:
+    """判断权限等级是否满足需求。write 隐含 read。"""
+    if permission == "write":
+        return True
+    if permission == "read" and required == "read":
+        return True
+    return False
+
+
 async def _require_doc_permission(
-    db: AsyncSession, doc_id: str, user: User, action: str = "查看"
+    db: AsyncSession, doc_id: str, user: User, action: str = "查看", required: str = "read"
 ) -> None:
-    """检查用户对文档的权限，无权限时抛出 403"""
+    """检查用户对文档的权限，无权限时抛出 403
+
+    required: "read" 表示需要读权限，"write" 表示需要写权限
+    DocumentPermission 优先；仅当无 DocumentPermission 时才回退到 SourcePermission。
+    """
     if user.role == "admin":
         return
+
+    # 查 DocumentPermission（优先）
     perm = await db.execute(
         select(DocumentPermission).where(
             DocumentPermission.document_id == doc_id,
             DocumentPermission.user_id == user.id,
         )
     )
-    if not perm.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail=f"无权限{action}该文档")
+    doc_perm = perm.scalar_one_or_none()
+    if doc_perm:
+        if not _permission_allows(doc_perm.permission, required):
+            raise HTTPException(status_code=403, detail=f"无权限{action}该文档")
+        return
+
+    # 无 DocumentPermission 时回退到 SourcePermission
+    doc = await db.get(Document, doc_id)
+    if doc and doc.source_id:
+        sp = await db.execute(
+            select(SourcePermission).where(
+                SourcePermission.source_id == doc.source_id,
+                SourcePermission.user_id == user.id,
+            )
+        )
+        src_perm = sp.scalar_one_or_none()
+        if src_perm and _permission_allows(src_perm.permission, required):
+            return
+
+    raise HTTPException(status_code=403, detail=f"无权限{action}该文档")
 
 
 @router.post("/upload")
@@ -158,8 +191,8 @@ async def upload_file(
     db.add(doc)
     await db.flush()
 
-    # flush 保证 doc.id 可用
-    db.add(DocumentPermission(document_id=doc.id, user_id=user.id, permission="read"))
+    # flush 保证 doc.id 可用，上传者默认 write 权限
+    db.add(DocumentPermission(document_id=doc.id, user_id=user.id, permission="write"))
     await db.flush()
 
     from app.tasks.indexing import index_document_task
@@ -312,7 +345,7 @@ async def delete_document(
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
-    await _require_doc_permission(db, doc_id, user, "删除")
+    await _require_doc_permission(db, doc_id, user, "删除", required="write")
     await db.delete(doc)
     await webhook_dispatch(
         db,
@@ -357,8 +390,13 @@ class BatchIds(BaseModel):
     ids: list[str]
 
 
-async def _filter_authorized_doc_ids(data: BatchIds, user: User, db: AsyncSession) -> list[UUID]:
-    """验证 UUID 格式并过滤出用户有权限的文档 ID"""
+async def _filter_authorized_doc_ids(
+    data: BatchIds, user: User, db: AsyncSession, required: str = "read"
+) -> list[UUID]:
+    """验证 UUID 格式并过滤出用户有指定权限的文档 ID
+
+    DocumentPermission 优先；仅当无 DocumentPermission 时才回退到 SourcePermission。
+    """
     valid_ids = []
     for doc_id in data.ids:
         try:
@@ -366,17 +404,51 @@ async def _filter_authorized_doc_ids(data: BatchIds, user: User, db: AsyncSessio
         except ValueError:
             continue
 
-    if valid_ids and user.role != "admin":
-        perm_result = await db.execute(
-            select(DocumentPermission.document_id).where(
-                DocumentPermission.document_id.in_(valid_ids),
-                DocumentPermission.user_id == user.id,
+    if not valid_ids or user.role == "admin":
+        return valid_ids
+
+    # DocumentPermission
+    perm_result = await db.execute(
+        select(DocumentPermission.document_id, DocumentPermission.permission).where(
+            DocumentPermission.document_id.in_(valid_ids),
+            DocumentPermission.user_id == user.id,
+        )
+    )
+    perm_map = {row.document_id: row.permission for row in perm_result}
+
+    # SourcePermission（仅用于无 DocumentPermission 的文档）
+    doc_result = await db.execute(
+        select(Document.id, Document.source_id).where(Document.id.in_(valid_ids))
+    )
+    doc_source_map = {row.id: row.source_id for row in doc_result if row.source_id}
+    source_ids = set(doc_source_map.values())
+
+    src_perm_map = {}
+    if source_ids:
+        src_result = await db.execute(
+            select(SourcePermission.source_id, SourcePermission.permission).where(
+                SourcePermission.source_id.in_(source_ids),
+                SourcePermission.user_id == user.id,
             )
         )
-        allowed_ids = set(perm_result.scalars().all())
-        valid_ids = [uid for uid in valid_ids if uid in allowed_ids]
+        src_perm_map = {row.source_id: row.permission for row in src_result}
 
-    return valid_ids
+    allowed = []
+    for uid in valid_ids:
+        doc_perm = perm_map.get(uid)
+        if doc_perm:
+            # DocumentPermission 存在时以其为准
+            if _permission_allows(doc_perm, required):
+                allowed.append(uid)
+        else:
+            # 无 DocumentPermission 时回退到 SourcePermission
+            src_id = doc_source_map.get(uid)
+            if src_id:
+                src_perm = src_perm_map.get(src_id)
+                if src_perm and _permission_allows(src_perm, required):
+                    allowed.append(uid)
+
+    return allowed
 
 
 @router.post("/batch-delete")
@@ -385,7 +457,7 @@ async def batch_delete(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    valid_ids = await _filter_authorized_doc_ids(data, user, db)
+    valid_ids = await _filter_authorized_doc_ids(data, user, db, required="write")
     if not valid_ids:
         return {"detail": "已删除 0 个文档"}
 
@@ -399,7 +471,7 @@ async def batch_reindex(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    valid_ids = await _filter_authorized_doc_ids(data, user, db)
+    valid_ids = await _filter_authorized_doc_ids(data, user, db, required="write")
     if not valid_ids:
         return {"detail": "已触发 0 个文档重新索引"}
 

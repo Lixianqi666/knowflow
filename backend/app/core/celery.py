@@ -20,6 +20,8 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    task_time_limit=300,
+    task_soft_time_limit=240,
 )
 
 # 显式导入任务模块（autodiscovery 只找 tasks.py，不找 indexing.py）

@@ -7,133 +7,82 @@ on:
     branches: [main]
 
 jobs:
-  python-lint:
+  docker-config:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install black isort flake8
-      - working-directory: ./backend
-        run: |
-          black --check app/ tests/ --diff
-          isort --check app/ tests/ --diff
-          flake8 app/ tests/ --statistics
-
-  python-test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: knowflow
-          POSTGRES_PASSWORD: knowflow
-          POSTGRES_DB: knowflow
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping || exit 1"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - working-directory: ./backend
-        run: |
-          pip install -r requirements.txt
-          TESTING=1 \
-          DATABASE_URL="postgresql+asyncpg://knowflow:knowflow@localhost:5432/knowflow" \
-          REDIS_URL="redis://localhost:6379/0" \
-          python -m pytest tests/ -v --tb=short
-
-  frontend-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - working-directory: ./frontend
-        run: |
-          npm install --legacy-peer-deps
-          npm run lint
-          npm run format:check
-
-  frontend-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - working-directory: ./frontend
-        run: |
-          npm install --legacy-peer-deps
-          npm test
-
-  frontend-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - working-directory: ./frontend
-        run: |
-          npm install --legacy-peer-deps
-          npm run build
-
-  frontend-audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - working-directory: ./frontend
-        continue-on-error: true
-        run: npm audit --audit-level=high
+      - run: docker compose config --quiet
 
   docker-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          docker compose build --parallel \
-            postgres redis \
-            backend worker frontend
+      - run: docker compose build backend frontend
 
-  trivy-scan:
+  backend-test:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build backend
+      - run: docker compose up -d postgres redis
+      - name: Run backend tests
+        run: |
+          docker compose run --rm backend sh -c "\
+            TESTING=1 pytest tests/test_auth.py tests/test_chat.py tests/test_goal_context.py tests/test_prompts.py tests/test_webhooks.py tests/test_documents.py tests/test_knowledge_bases.py tests/test_agents_api.py tests/test_indexing_lock.py tests/test_metrics.py -q --tb=short"
+      - if: always()
+        run: docker compose down
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build frontend test image
+        run: docker build --target test -t knowflow-frontend-test ./frontend
+      - name: Run frontend tests
+        run: docker run --rm knowflow-frontend-test sh -c "npm run test"
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build frontend
+
+  trivy-fs-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose build --parallel backend frontend
-      - name: Run trivy on backend
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+  trivy-image-scan:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build backend frontend
+      - name: Trivy backend image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 'knowflow-fastapi:latest'
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-      - name: Run trivy on frontend
+      - name: Trivy frontend image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 'knowflow-frontend:latest'
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true

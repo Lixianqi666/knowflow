@@ -3,6 +3,8 @@
 import { useState, useRef, KeyboardEvent } from 'react';
 import { Send, StopCircle } from 'lucide-react';
 
+export const MAX_MESSAGE_LENGTH = 4000;
+
 interface Props {
   onSend: (message: string) => void;
   disabled?: boolean;
@@ -17,6 +19,7 @@ export default function InputBox({ onSend, disabled, onStop, streaming }: Props)
   const handleSend = () => {
     const trimmed = value.trim();
     if (!trimmed || disabled || streaming) return;
+    if (trimmed.length > MAX_MESSAGE_LENGTH) return;
     onSend(trimmed);
     setValue('');
     if (textareaRef.current) {
@@ -77,6 +80,7 @@ export default function InputBox({ onSend, disabled, onStop, streaming }: Props)
             placeholder="输入消息..."
             disabled={disabled}
             rows={1}
+            maxLength={MAX_MESSAGE_LENGTH}
             className="flex-1 resize-none text-sm outline-none bg-transparent py-2 leading-6"
             style={{ color: 'var(--c-text)', maxHeight: 160 }}
           />
@@ -93,6 +97,15 @@ export default function InputBox({ onSend, disabled, onStop, streaming }: Props)
             <Send className="w-4 h-4" />
           </button>
         </div>
+
+        {value.length >= MAX_MESSAGE_LENGTH - 100 && (
+          <p
+            className="text-xs mt-1 text-right"
+            style={{ color: value.length >= MAX_MESSAGE_LENGTH ? 'var(--c-error)' : 'var(--c-text-tertiary)' }}
+          >
+            {value.length}/{MAX_MESSAGE_LENGTH}
+          </p>
+        )}
 
         <p
           className="text-xs mt-2"

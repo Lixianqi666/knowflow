@@ -38,6 +38,7 @@ async def rewrite(query: str, history: str = "") -> str:
             ],
             temperature=0.0,
             max_tokens=100,
+            timeout=30,
         )
         if settings.LLM_API_KEY:
             kwargs["api_key"] = settings.LLM_API_KEY

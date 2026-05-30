@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     # JWT — 生产环境必须通过环境变量设置，不能用默认值
     SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24小时
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     # CORS — 逗号分隔的允许来源，空字符串=仅同源
     CORS_ORIGINS: str = "http://localhost:3000"
     # LLM
