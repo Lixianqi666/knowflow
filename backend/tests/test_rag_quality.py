@@ -80,11 +80,13 @@ async def test_down_feedback_creates_issue(client: AsyncClient, auth_headers: di
 
     async with db_session_factory() as session:
         result = await session.execute(
-            select(RagQualityIssue).where(RagQualityIssue.source_type == "feedback")
+            select(RagQualityIssue).where(
+                RagQualityIssue.source_type == "feedback",
+                RagQualityIssue.source_id == msg_id,
+            )
         )
         issue = result.scalars().first()
     assert issue is not None
-    assert issue.source_id == msg_id
     assert issue.reason == "回答不准确"
     assert issue.severity == "medium"
     assert issue.status == "open"
@@ -232,8 +234,10 @@ async def test_no_kb_issue_only_admin_or_creator(client: AsyncClient, auth_heade
     uid = await _get_user_id(db_session_factory, "pytest@test.com")
 
     # 创建一个无 KB 的 issue（由其他用户创建）
+    import uuid as _uuid
+    unique_email = f"other-{_uuid.uuid4().hex[:8]}@test.com"
     async with db_session_factory() as session:
-        other = User(email="other@test.com", name="Other", hashed_password="x")
+        other = User(email=unique_email, name="Other", hashed_password="x")
         session.add(other)
         await session.flush()
         issue = RagQualityIssue(
