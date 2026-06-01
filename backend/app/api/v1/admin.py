@@ -1,8 +1,11 @@
 import asyncio
+import logging
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -376,12 +379,14 @@ async def health_overview(
 
     # Document stats
     try:
+        from sqlalchemy import case
+
         doc_stats = await db.execute(
             select(
                 func.count(Document.id).label("total"),
-                func.sum(func.cast(Document.status == "indexed", type_=func.cast(1, type_=func.count))).label("indexed"),
-                func.sum(func.cast(Document.status == "processing", type_=func.cast(1, type_=func.count))).label("processing"),
-                func.sum(func.cast(Document.status == "failed", type_=func.cast(1, type_=func.count))).label("failed"),
+                func.sum(case((Document.status == "indexed", 1), else_=0)).label("indexed"),
+                func.sum(case((Document.status == "processing", 1), else_=0)).label("processing"),
+                func.sum(case((Document.status == "failed", 1), else_=0)).label("failed"),
             )
         )
         row = doc_stats.one()
@@ -407,7 +412,8 @@ async def health_overview(
             }
             for d in failed_result.scalars().all()
         ]
-    except Exception:
+    except Exception as e:
+        logger.warning(f"文档统计查询失败: {e}")
         result["status"] = "degraded"
 
     # RAG eval stats
@@ -432,8 +438,8 @@ async def health_overview(
         )
         score = latest_run.scalar_one_or_none()
         result["rag_evals"]["latest_score"] = round(score, 2) if score is not None else None
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"RAG eval 统计查询失败: {e}")
 
     # Feedback stats
     try:
@@ -448,8 +454,8 @@ async def health_overview(
         fb_row = fb_stats.one()
         result["feedback"]["up"] = fb_row.up or 0
         result["feedback"]["down"] = fb_row.down or 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"反馈统计查询失败: {e}")
 
     return result
 
