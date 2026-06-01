@@ -529,11 +529,31 @@ async def health_indexing(
         for d in indexed_result.scalars().all()
     ]
 
+    # Stuck processing (>10 minutes)
+    from datetime import datetime, timedelta, timezone
+
+    stuck_threshold = datetime.now(timezone.utc) - timedelta(minutes=10)
+    stuck_result = await db.execute(
+        select(Document)
+        .where(Document.status == "processing", Document.updated_at < stuck_threshold)
+        .order_by(Document.updated_at.asc())
+        .limit(10)
+    )
+    stuck_processing = [
+        {
+            "id": str(d.id),
+            "title": d.title,
+            "updated_at": str(d.updated_at) if d.updated_at else None,
+        }
+        for d in stuck_result.scalars().all()
+    ]
+
     return {
         "pending": row.pending or 0,
         "processing": row.processing or 0,
         "indexed": row.indexed or 0,
         "failed": row.failed or 0,
+        "stuck_processing": stuck_processing,
         "top_retry": top_retry,
         "recent_failed": recent_failed,
         "recent_indexed": recent_indexed,

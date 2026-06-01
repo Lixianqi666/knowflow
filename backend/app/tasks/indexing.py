@@ -102,9 +102,22 @@ async def _index(document_id: str):
                 documents_indexed_total.inc()
                 logger.info(f"文档索引完成: {doc.title}")
             except Exception as e:
+                # 安全回退：确保状态一定写入，即使 commit 失败也不卡在 processing
                 doc.status = "failed"
                 doc.error_message = str(e)[:500]
-                await db.commit()
+                try:
+                    await db.commit()
+                except Exception:
+                    logger.exception(f"文档 {document_id} 状态写入失败，尝试回滚后重写")
+                    await db.rollback()
+                    try:
+                        doc = await db.get(Document, document_id)
+                        if doc and doc.status == "processing":
+                            doc.status = "failed"
+                            doc.error_message = str(e)[:500]
+                            await db.commit()
+                    except Exception:
+                        logger.exception(f"文档 {document_id} 状态重写也失败")
                 logger.exception(f"文档索引失败: {document_id} - {e}")
     finally:
         await engine.dispose()
