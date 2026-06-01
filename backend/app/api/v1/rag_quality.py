@@ -70,6 +70,12 @@ async def list_issues(
     if source_type:
         query = query.where(RagQualityIssue.source_type == source_type)
     if knowledge_base_id:
+        # 校验用户对指定 KB 的访问权限
+        kb = await db.get(KnowledgeBase, knowledge_base_id)
+        if not kb:
+            raise HTTPException(status_code=404, detail="知识库不存在")
+        if not await can_view_kb(db, user, kb):
+            raise HTTPException(status_code=403, detail="无权限访问该知识库")
         query = query.where(RagQualityIssue.knowledge_base_id == knowledge_base_id)
 
     # 权限过滤
