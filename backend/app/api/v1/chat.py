@@ -324,6 +324,32 @@ async def create_feedback(
         existing.rating = data.rating
         existing.reason = data.reason
         await db.flush()
+
+        # 更新为 down 时创建质量问题
+        if data.rating == "down":
+            from app.services.rag_quality import create_issue_from_feedback
+
+            q_result = await db.execute(
+                select(Message)
+                .where(
+                    Message.conversation_id == msg.conversation_id,
+                    Message.role == "user",
+                    Message.created_at < msg.created_at,
+                )
+                .order_by(Message.created_at.desc())
+                .limit(1)
+            )
+            user_msg = q_result.scalar_one_or_none()
+            await create_issue_from_feedback(
+                db,
+                message_id=str(msg_id),
+                question=user_msg.content if user_msg else None,
+                answer=msg.content,
+                citations=msg.citations or [],
+                reason=data.reason,
+                created_by=str(user.id),
+            )
+
         from app.services.audit_v2 import record_audit_event
 
         await record_audit_event(
