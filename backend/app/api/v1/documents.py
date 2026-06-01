@@ -551,6 +551,16 @@ async def retry_index(
     doc.status = "pending"
     await db.commit()
 
+    # 清除可能残留的 Redis 锁，确保重试任务不被阻塞
+    from app.tasks.indexing import _release_lock, _acquire_lock, LOCK_KEY_PREFIX
+    from app.core.ratelimit import get_redis
+
+    try:
+        r = await get_redis()
+        await r.delete(f"{LOCK_KEY_PREFIX}{doc_id}")
+    except Exception:
+        pass
+
     from app.tasks.indexing import index_document_task
 
     index_document_task.delay(str(doc.id))
