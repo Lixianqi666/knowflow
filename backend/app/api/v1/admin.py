@@ -192,6 +192,8 @@ async def get_stats(
     if cached:
         return cached
 
+    from app.models.message_feedback import MessageFeedback
+
     # 并行执行所有 COUNT 查询
     results = await asyncio.gather(
         db.scalar(select(func.count(User.id))),
@@ -208,8 +210,8 @@ async def get_stats(
                 func.jsonb_array_length(Message.sources) > 0,
             )
         ),
-        db.scalar(select(func.count(Message.id)).where(Message.rating == 1)),
-        db.scalar(select(func.count(Message.id)).where(Message.rating == -1)),
+        db.scalar(select(func.count(MessageFeedback.id)).where(MessageFeedback.rating == "up")),
+        db.scalar(select(func.count(MessageFeedback.id)).where(MessageFeedback.rating == "down")),
         db.scalar(
             select(func.count(Conversation.id)).where(
                 func.date(Conversation.created_at) == func.current_date()
