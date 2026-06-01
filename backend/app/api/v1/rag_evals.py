@@ -21,6 +21,36 @@ from app.services.rag_eval import evaluate_rag_answer
 router = APIRouter(prefix="/rag-evals", tags=["RAG 评测"])
 
 
+async def _can_access_case(db: AsyncSession, user: User, case: RagEvalCase) -> bool:
+    """检查用户是否可以访问该评测用例"""
+    if user.role == "admin":
+        return True
+    if case.created_by == user.id:
+        return True
+    if case.knowledge_base_id:
+        from app.services.kb_permissions import can_view_kb
+
+        kb = await db.get(KnowledgeBase, case.knowledge_base_id)
+        if kb and await can_view_kb(db, user, kb):
+            return True
+    return False
+
+
+async def _can_edit_case(db: AsyncSession, user: User, case: RagEvalCase) -> bool:
+    """检查用户是否可以编辑该评测用例"""
+    if user.role == "admin":
+        return True
+    if case.created_by == user.id:
+        return True
+    if case.knowledge_base_id:
+        from app.services.kb_permissions import can_edit_kb
+
+        kb = await db.get(KnowledgeBase, case.knowledge_base_id)
+        if kb and await can_edit_kb(db, user, kb):
+            return True
+    return False
+
+
 @router.get("/cases", response_model=list[RagEvalCaseOut])
 async def list_cases(
     user: User = Depends(get_current_user),
@@ -28,7 +58,18 @@ async def list_cases(
 ):
     query = select(RagEvalCase).order_by(RagEvalCase.created_at.desc())
     if user.role != "admin":
-        query = query.where(RagEvalCase.created_by == user.id)
+        # 用户可见：自己创建的 + 自己有权限的 KB 的用例
+        from app.models.kb_member import KnowledgeBaseMember
+
+        member_kb_ids = select(KnowledgeBaseMember.knowledge_base_id).where(
+            KnowledgeBaseMember.user_id == user.id
+        )
+        created_kb_ids = select(KnowledgeBase.id).where(KnowledgeBase.created_by == user.id)
+        query = query.where(
+            (RagEvalCase.created_by == user.id)
+            | RagEvalCase.knowledge_base_id.in_(member_kb_ids)
+            | RagEvalCase.knowledge_base_id.in_(created_kb_ids)
+        )
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -44,7 +85,9 @@ async def create_case(
         kb = await db.get(KnowledgeBase, data.knowledge_base_id)
         if not kb:
             raise HTTPException(status_code=404, detail="知识库不存在")
-        if user.role != "admin" and str(kb.created_by) != str(user.id):
+        from app.services.kb_permissions import can_edit_kb
+
+        if not await can_edit_kb(db, user, kb):
             raise HTTPException(status_code=403, detail="无权使用该知识库")
 
     case = RagEvalCase(
@@ -69,7 +112,7 @@ async def get_case(
     case = await db.get(RagEvalCase, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="评测用例不存在")
-    if user.role != "admin" and case.created_by != user.id:
+    if not await _can_access_case(db, user, case):
         raise HTTPException(status_code=404, detail="评测用例不存在")
     return case
 
@@ -84,8 +127,8 @@ async def update_case(
     case = await db.get(RagEvalCase, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="评测用例不存在")
-    if user.role != "admin" and case.created_by != user.id:
-        raise HTTPException(status_code=404, detail="评测用例不存在")
+    if not await _can_edit_case(db, user, case):
+        raise HTTPException(status_code=403, detail="无权编辑该评测用例")
 
     if data.question is not None:
         case.question = data.question
@@ -108,8 +151,8 @@ async def delete_case(
     case = await db.get(RagEvalCase, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="评测用例不存在")
-    if user.role != "admin" and case.created_by != user.id:
-        raise HTTPException(status_code=404, detail="评测用例不存在")
+    if not await _can_edit_case(db, user, case):
+        raise HTTPException(status_code=403, detail="无权删除该评测用例")
     await db.delete(case)
     return {"detail": "已删除"}
 
@@ -123,7 +166,7 @@ async def run_case(
     case = await db.get(RagEvalCase, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="评测用例不存在")
-    if user.role != "admin" and case.created_by != user.id:
+    if not await _can_access_case(db, user, case):
         raise HTTPException(status_code=404, detail="评测用例不存在")
 
     # 创建临时对话用于检索
@@ -230,7 +273,7 @@ async def list_runs(
     case = await db.get(RagEvalCase, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="评测用例不存在")
-    if user.role != "admin" and case.created_by != user.id:
+    if not await _can_access_case(db, user, case):
         raise HTTPException(status_code=404, detail="评测用例不存在")
 
     result = await db.execute(
