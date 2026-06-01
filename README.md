@@ -1,5 +1,7 @@
 # KnowFlow
 
+> 当前版本：v0.1.0 · [CHANGELOG](./CHANGELOG.md) · [版本策略](./docs/versioning.md)
+
 企业知识库 RAG 问答系统。上传文档，基于检索增强生成（RAG）进行流式问答，支持多知识库、多角色权限、Agent 对话、管理后台。
 
 ## 功能特性
@@ -211,8 +213,6 @@ knowflow/
 
 ## 测试
 
-**所有测试和构建必须通过 Docker 执行，不要在宿主机安装依赖。**
-
 ```bash
 # 一键验证（推荐）
 sh scripts/verify-docker.sh
@@ -231,8 +231,30 @@ docker run --rm knowflow-frontend-test sh -c "npm run test"
 docker compose build frontend
 ```
 
-CI 使用 GitHub Actions，所有 job 均在 Docker 内运行，Trivy 扫描 HIGH/CRITICAL 漏洞会阻断构建。
+## 私有化交付
 
-## 文档
+- [私有化部署指南](docs/private_deployment.md) — 服务器配置、环境变量、首次部署
+- [升级与回滚](docs/upgrade_rollback.md) — 升级流程、回滚步骤、版本记录
+- [备份与恢复](docs/backup_restore.md) — 数据库备份、文件备份、恢复演练
+- [发布检查清单](docs/release_checklist.md) — 发布前检查、发布步骤、回滚预案
+- [客户交付包](docs/delivery_package.md) — 交付包结构、必备文件、验收清单
+- [版本策略](docs/versioning.md) — SemVer 规则、migration 兼容性、镜像 tag
+- [UAT 验收清单](docs/uat_checklist.md) — 功能验收项、操作步骤、预期结果
+- [生产就绪检查](docs/production_readiness.md) — 安全/权限/审计/备份/监控检查
 
-- [部署指南](./docs/DEPLOY.md) — 生产环境部署、SSL、备份、升级
+## 版本与发布
+
+```bash
+# 查看版本信息
+bash scripts/print-version.sh
+
+# 构建发布清单
+bash scripts/build-release-manifest.sh
+# 输出：dist/release-manifest.json
+
+# UAT 交付材料检查
+bash scripts/uat-smoke.sh
+```
+
+- [CHANGELOG.md](./CHANGELOG.md) — 版本变更记录
+- [Release Notes 模板](./RELEASE_NOTES_TEMPLATE.md) — 发布说明模板

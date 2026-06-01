@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
 import DocList from '@/components/DocList';
-import { Search, RefreshCw } from 'lucide-react';
+import KBMembers from '@/components/KBMembers';
+import RAGConfigPanel from '@/components/RAGConfigPanel';
+import { Search, RefreshCw, Users, Settings } from 'lucide-react';
 
 interface KB {
   id: string;
   name: string;
   description: string;
+  user_role?: string | null;
 }
 
 export default function DocumentsPage() {
@@ -19,6 +22,9 @@ export default function DocumentsPage() {
   const [showCreateKb, setShowCreateKb] = useState(false);
   const [newKbName, setNewKbName] = useState('');
   const [searchVal, setSearchVal] = useState('');
+  const [showMembers, setShowMembers] = useState(false);
+  const [showRagConfig, setShowRagConfig] = useState(false);
+  const [currentKbRole, setCurrentKbRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -98,7 +104,13 @@ export default function DocumentsPage() {
               <div className="flex items-center gap-2.5 flex-wrap">
                 <select
                   value={currentKbId}
-                  onChange={(e) => setCurrentKbId(e.target.value)}
+                  onChange={(e) => {
+                    setCurrentKbId(e.target.value);
+                    setShowMembers(false);
+                    setShowRagConfig(false);
+                    const selected = kbs.find((kb) => kb.id === e.target.value);
+                    setCurrentKbRole(selected?.user_role || null);
+                  }}
                   className="rounded-md text-sm input-base cursor-pointer"
                   style={{
                     padding: '7px 32px 7px 12px',
@@ -119,6 +131,39 @@ export default function DocumentsPage() {
                     </option>
                   ))}
                 </select>
+                {currentKbId && (
+                  <>
+                    <button
+                      onClick={() => setShowMembers(!showMembers)}
+                      className="px-3 py-2 text-sm rounded-lg border-none cursor-pointer transition-all flex items-center gap-1.5"
+                      style={{
+                        background: showMembers ? 'var(--c-primary)' : 'var(--c-surface)',
+                        color: showMembers ? '#fff' : 'var(--c-text-secondary)',
+                        border: '1px solid var(--c-border)',
+                      }}
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      成员
+                      {currentKbRole && (
+                        <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: showMembers ? 'rgba(255,255,255,.2)' : 'var(--c-bg)' }}>
+                          {currentKbRole}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setShowRagConfig(!showRagConfig)}
+                      className="px-3 py-2 text-sm rounded-lg border-none cursor-pointer transition-all flex items-center gap-1.5"
+                      style={{
+                        background: showRagConfig ? 'var(--c-primary)' : 'var(--c-surface)',
+                        color: showRagConfig ? '#fff' : 'var(--c-text-secondary)',
+                        border: '1px solid var(--c-border)',
+                      }}
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      RAG 配置
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => setShowCreateKb(!showCreateKb)}
                   className="ml-1 px-4 py-2 text-sm font-medium rounded-lg border-none cursor-pointer transition-all"
@@ -174,6 +219,31 @@ export default function DocumentsPage() {
                 >
                   取消
                 </button>
+              </div>
+            )}
+
+            {/* 成员管理 */}
+            {showMembers && currentKbId && (
+              <div
+                className="mb-4 rounded-xl p-4"
+                style={{
+                  background: 'rgba(255,255,255,.86)',
+                  border: '1px solid var(--c-border)',
+                  boxShadow: 'var(--shadow-sm)',
+                }}
+              >
+                <KBMembers kbId={currentKbId} currentUserRole={currentKbRole} />
+              </div>
+            )}
+
+            {/* RAG 配置 */}
+            {showRagConfig && currentKbId && (
+              <div className="mb-4">
+                <RAGConfigPanel
+                  kbId={currentKbId}
+                  kbName={kbs.find((kb) => kb.id === currentKbId)?.name || ''}
+                  canEdit={currentKbRole === 'owner' || currentKbRole === 'editor' || currentKbRole === 'admin'}
+                />
               </div>
             )}
 

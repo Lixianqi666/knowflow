@@ -42,6 +42,8 @@ class Document(Base):
     status = Column(
         String(20), default="pending", index=True
     )  # pending / processing / indexed / failed
+    error_message = Column(Text, nullable=True)
+    retry_count = Column(Integer, default=0, nullable=False)
     indexed_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

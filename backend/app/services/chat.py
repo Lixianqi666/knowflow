@@ -56,10 +56,11 @@ class ChatService:
         is_admin: bool = False,
         template_id: str | None = None,
         goal: str | None = None,
+        knowledge_base_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
         try:
             async for event in self._do_stream(
-                conversation_id, user_message, user_id, is_admin, template_id, goal
+                conversation_id, user_message, user_id, is_admin, template_id, goal, knowledge_base_id
             ):
                 yield event
         except Exception as e:
@@ -87,12 +88,14 @@ class ChatService:
         is_admin: bool = False,
         template_id: str | None = None,
         goal: str | None = None,
+        knowledge_base_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
         top_k = settings.RETRIEVAL_TOP_K
         threshold = settings.RETRIEVAL_THRESHOLD
         rerank_top_k = settings.RETRIEVAL_RERANK_TOP_K
         system_prompt = RAG_SYSTEM
         tmpl = None
+        no_evidence_policy = "strict"
 
         # 获取对话并处理 goal
         conv = await self.db.get(Conversation, conversation_id)
@@ -103,12 +106,28 @@ class ChatService:
             conv.goal = goal
             await self.db.flush()
 
+        # 优先使用 KB rag_config
+        if knowledge_base_id:
+            try:
+                from app.models.knowledge_base import KnowledgeBase
+                from app.services.rag_config import get_effective_rag_config
+
+                kb = await self.db.get(KnowledgeBase, knowledge_base_id)
+                if kb:
+                    rc = get_effective_rag_config(kb.rag_config)
+                    top_k = rc.get("top_k", top_k)
+                    threshold = rc.get("score_threshold", threshold)
+                    no_evidence_policy = rc.get("no_evidence_policy", "strict")
+                    # chunk_size/chunk_overlap 用于索引阶段，聊天阶段不需要
+            except Exception:
+                pass
+
         if template_id:
             try:
                 tmpl = await self.db.get(PromptTemplate, template_id)
                 if tmpl and tmpl.is_active:
-                    top_k = tmpl.top_k or settings.RETRIEVAL_TOP_K
-                    threshold = (tmpl.threshold or 30) / 100.0
+                    top_k = tmpl.top_k or top_k
+                    threshold = (tmpl.threshold or 30) / 100.0 if tmpl.threshold else threshold
                     rerank_top_k = tmpl.rerank_top_k or settings.RETRIEVAL_RERANK_TOP_K
             except Exception:
                 pass
@@ -147,6 +166,46 @@ class ChatService:
             }
             for c in chunks
         ]
+        # 批量查询 chunk metadata（用于 page/section 定位）
+        chunk_ids = [c.id for c in chunks if c.score > 0]
+        chunk_meta_map: dict[str, dict] = {}
+        if chunk_ids:
+            from app.models.document import DocumentChunk as DC
+
+            meta_result = await self.db.execute(
+                select(DC.id, DC.metadata_).where(DC.id.in_(chunk_ids))
+            )
+            chunk_meta_map = {str(row[0]): (row[1] or {}) for row in meta_result.fetchall()}
+
+        citations = []
+        for i, c in enumerate(chunks):
+            if c.score <= 0:
+                continue
+            cid = str(c.id)
+            meta = chunk_meta_map.get(cid, {})
+            page = meta.get("page") or meta.get("page_number")
+            section = meta.get("section") or meta.get("heading")
+            locator: dict = {}
+            if page is not None:
+                locator = {"type": "page", "value": str(page)}
+            elif section:
+                locator = {"type": "text", "value": str(section)}
+            else:
+                locator = {"type": "chunk", "value": cid}
+            entry: dict = {
+                "index": i + 1,
+                "document_id": str(c.document_id),
+                "document_title": c.document_title,
+                "chunk_id": cid,
+                "snippet": c.content[:300],
+                "score": round(c.score, 3),
+                "locator": locator,
+            }
+            if page is not None:
+                entry["page"] = int(page) if isinstance(page, (int, float, str)) and str(page).isdigit() else page
+            if section:
+                entry["section"] = str(section)
+            citations.append(entry)
         yield json.dumps({"type": "sources", "data": sources}, ensure_ascii=False)
         await trigger_hooks(
             "after_retrieval",
@@ -255,6 +314,7 @@ class ChatService:
                 role="assistant",
                 content=display_text,
                 sources=sources,
+                citations=citations,
             )
         )
         await self.db.flush()

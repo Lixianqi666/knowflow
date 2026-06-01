@@ -8,25 +8,52 @@ import { Source } from '@/lib/store';
 
 const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false });
 
+interface Citation {
+  index: number;
+  document_id: string;
+  document_title: string;
+  chunk_id: string;
+  snippet: string;
+  score?: number;
+  page?: number;
+  section?: string;
+  locator?: { type: string; value: string };
+}
+
+interface FeedbackData {
+  rating: string;
+  reason?: string | null;
+}
+
 interface Props {
   role: 'user' | 'assistant';
   content: string;
   sources?: Source[];
+  citations?: Citation[];
   msgId?: string;
   rating?: number | null;
+  feedback?: FeedbackData | null;
   onSourceClick?: (documentId: string, chunkId: string) => void;
   onRate?: (msgId: string, rating: number) => void;
+  onFeedback?: (msgId: string, rating: string, reason?: string) => void;
+  onToEvalCase?: (msgId: string) => void;
 }
 
 export default function MessageBubble({
   role,
   content,
   sources,
+  citations,
   msgId,
   rating,
+  feedback,
   onSourceClick,
   onRate,
+  onFeedback,
+  onToEvalCase,
 }: Props) {
+  const [citationsOpen, setCitationsOpen] = useState(false);
+  const [evalCaseCreated, setEvalCaseCreated] = useState(false);
   const isUser = role === 'user';
   const handleDownload = async (docId: string) => {
     try {
@@ -156,16 +183,119 @@ export default function MessageBubble({
               </div>
             )}
 
-            {msgId && content && rating === undefined && onRate && (
-              <div className="mt-3 flex items-center gap-1">
-                <RatingButton
-                  icon={<ThumbsUp className="w-3.5 h-3.5" />}
-                  onClick={() => onRate(msgId, 1)}
-                />
-                <RatingButton
-                  icon={<ThumbsDown className="w-3.5 h-3.5" />}
-                  onClick={() => onRate(msgId, -1)}
-                />
+            {citations && citations.length > 0 && (
+              <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--c-border)' }}>
+                <button
+                  onClick={() => setCitationsOpen(!citationsOpen)}
+                  className="flex items-center gap-1.5 text-xs font-medium border-none cursor-pointer transition-colors"
+                  style={{ color: 'var(--c-primary)', background: 'none' }}
+                >
+                  <FileText className="w-3 h-3" />
+                  引用 {citations.length} 条
+                  <span className="text-[10px]" style={{ color: 'var(--c-text-tertiary)' }}>
+                    {citationsOpen ? '▲' : '▼'}
+                  </span>
+                </button>
+                {citationsOpen && (
+                  <div className="mt-2 space-y-2 animate-slide-up">
+                    {citations.map((c) => (
+                      <div
+                        key={c.chunk_id}
+                        className="p-2.5 rounded-lg text-xs cursor-pointer transition-all hover:shadow-sm"
+                        style={{ background: 'var(--c-bg)', border: '1px solid var(--c-border)' }}
+                        onClick={() => c.document_id && onSourceClick?.(c.document_id, c.chunk_id)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            c.document_id && onSourceClick?.(c.document_id, c.chunk_id);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="font-medium" style={{ color: 'var(--c-text-secondary)' }}>
+                            {c.document_title}
+                          </div>
+                          {c.page && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--c-primary-subtle)', color: 'var(--c-primary)' }}>
+                              第{c.page}页
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="leading-relaxed"
+                          style={{ color: 'var(--c-text-tertiary)' }}
+                        >
+                          {c.snippet.length > 200 ? c.snippet.slice(0, 200) + '...' : c.snippet}
+                        </div>
+                        {c.document_id && (
+                          <div className="mt-1 text-[10px]" style={{ color: 'var(--c-primary)' }}>
+                            点击查看原文 →
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {msgId && content && (
+              <div className="mt-3 flex items-center gap-1 flex-wrap">
+                {feedback ? (
+                  <>
+                    <span
+                      className="text-xs px-2 py-1 rounded-lg"
+                      style={{
+                        background: feedback.rating === 'up' ? 'var(--c-success-subtle)' : 'var(--c-error-subtle)',
+                        color: feedback.rating === 'up' ? '#16a34a' : '#dc2626',
+                      }}
+                    >
+                      {feedback.rating === 'up' ? '👍 已反馈' : '👎 已反馈'}
+                    </span>
+                    {feedback.rating === 'down' && onToEvalCase && (
+                      evalCaseCreated ? (
+                        <span className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--c-success-subtle)', color: '#16a34a' }}>
+                          ✓ 已加入评测集
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            onToEvalCase(msgId);
+                            setEvalCaseCreated(true);
+                          }}
+                          className="text-xs px-2 py-1 rounded-lg border-none cursor-pointer transition-all"
+                          style={{ background: 'var(--c-primary-subtle)', color: 'var(--c-primary)' }}
+                        >
+                          加入评测集
+                        </button>
+                      )
+                    )}
+                  </>
+                ) : onFeedback ? (
+                  <>
+                    <FeedbackButton
+                      icon={<ThumbsUp className="w-3.5 h-3.5" />}
+                      onClick={() => onFeedback(msgId, 'up')}
+                    />
+                    <FeedbackButton
+                      icon={<ThumbsDown className="w-3.5 h-3.5" />}
+                      onClick={() => onFeedback(msgId, 'down')}
+                    />
+                  </>
+                ) : rating === undefined && onRate ? (
+                  <>
+                    <RatingButton
+                      icon={<ThumbsUp className="w-3.5 h-3.5" />}
+                      onClick={() => onRate(msgId, 1)}
+                    />
+                    <RatingButton
+                      icon={<ThumbsDown className="w-3.5 h-3.5" />}
+                      onClick={() => onRate(msgId, -1)}
+                    />
+                  </>
+                ) : null}
               </div>
             )}
           </div>
@@ -176,6 +306,33 @@ export default function MessageBubble({
 }
 
 function RatingButton({ icon, onClick }: { icon: React.ReactNode; onClick: () => void }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        onClick();
+        setDone(true);
+      }}
+      disabled={done}
+      className="flex items-center justify-center w-7 h-7 rounded-lg transition-all border-none cursor-pointer disabled:opacity-40"
+      style={{ color: 'var(--c-text-tertiary)', background: 'none' }}
+      onMouseEnter={(e) => {
+        if (!done) {
+          e.currentTarget.style.background = 'var(--c-bg)';
+          e.currentTarget.style.color = 'var(--c-primary)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'none';
+        e.currentTarget.style.color = 'var(--c-text-tertiary)';
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function FeedbackButton({ icon, onClick }: { icon: React.ReactNode; onClick: () => void }) {
   const [done, setDone] = useState(false);
   return (
     <button

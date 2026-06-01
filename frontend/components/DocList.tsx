@@ -13,6 +13,9 @@ interface Doc {
   id: string;
   title: string;
   status: string;
+  error_message?: string | null;
+  retry_count?: number;
+  indexed_at?: string | null;
   created_at: string;
   kb_id?: string | null;
 }
@@ -83,6 +86,7 @@ export default function DocList({
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'status'>('date');
 
   const docItems = Array.isArray(docs) ? docs : [];
@@ -144,6 +148,19 @@ export default function DocList({
       toast(e.message, 'error');
     } finally {
       setBatchBusy(false);
+    }
+  };
+
+  const handleRetry = async (docId: string) => {
+    setRetryingId(docId);
+    try {
+      await api.post(`/documents/${docId}/retry-index`);
+      toast('已重新加入索引队列', 'success');
+      load();
+    } catch (e: any) {
+      toast(e.message, 'error');
+    } finally {
+      setRetryingId(null);
     }
   };
 
@@ -353,6 +370,11 @@ export default function DocList({
                     day: 'numeric',
                   })}
                 </div>
+                {doc.status === 'failed' && doc.error_message && (
+                  <div className="text-xs mt-1 truncate" style={{ color: 'var(--c-error)' }}>
+                    {doc.error_message}
+                  </div>
+                )}
               </div>
               <span
                 className="shrink-0 text-xs font-medium px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
@@ -372,6 +394,23 @@ export default function DocList({
                 />
                 {statusLabel[doc.status] || doc.status}
               </span>
+              {doc.status === 'failed' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRetry(doc.id);
+                  }}
+                  disabled={retryingId === doc.id}
+                  className="shrink-0 px-2 py-1 text-xs rounded-lg border cursor-pointer disabled:opacity-50 transition-all"
+                  style={{
+                    color: 'var(--c-primary)',
+                    background: 'var(--c-primary-subtle)',
+                    borderColor: 'rgba(37,99,235,.2)',
+                  }}
+                >
+                  {retryingId === doc.id ? '重试中...' : '重试'}
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();

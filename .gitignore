@@ -1,0 +1,40 @@
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+.vscode/
+.idea/
+backend/uploads/
+backend/.venv/
+hf_cache/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+CLAUDE.md
+.github/copilot-instructions.md
+.claude
+frontend/tsconfig.tsbuildinfo
+monitoring/
+scripts/
+docs/
+
+# 本地生成的报告
+backend/evals/reports/latest.json
+backend/evals/reports/latest.md
+
+# Docker 本地覆盖（如有）
+docker-compose.override.yml
+
+# 数据库备份
+*.sql
+*.dump
+*.backup
+
+# 服务器部署配置（在服务器上维护）
+server/

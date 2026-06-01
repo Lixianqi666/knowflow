@@ -58,6 +58,7 @@ async def list_users(
     limit: int = 50,
     offset: int = 0,
 ):
+    limit = min(limit, 100)
     query = select(User)
     if q and q.strip():
         pattern = f"%{q.strip()}%"
@@ -71,10 +72,71 @@ async def list_users(
             "name": u.name,
             "role": u.role,
             "is_active": u.is_active,
+            "is_admin": u.role == "admin",
+            "disabled_reason": u.disabled_reason,
+            "disabled_at": str(u.disabled_at) if u.disabled_at else None,
+            "failed_login_count": u.failed_login_count or 0,
             "created_at": str(u.created_at),
         }
         for u in users
     ]
+
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
+    disabled_reason: str | None = None
+
+
+@router.patch("/users/{user_id}/status")
+async def update_user_status(
+    user_id: UUID,
+    body: UserStatusUpdate,
+    request: Request,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    if user.id == admin.id and not body.is_active:
+        raise HTTPException(status_code=400, detail="不能禁用自己")
+
+    from datetime import datetime, timezone
+
+    if not body.is_active:
+        user.is_active = False
+        user.disabled_reason = body.disabled_reason
+        user.disabled_at = datetime.now(timezone.utc)
+        action = "user.disable"
+    else:
+        user.is_active = True
+        user.disabled_reason = None
+        user.disabled_at = None
+        user.failed_login_count = 0
+        action = "user.enable"
+
+    await db.flush()
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=admin,
+        action=action,
+        resource_type="user",
+        resource_id=user_id,
+        request=request,
+        metadata={"target_email": user.email, "reason": body.disabled_reason},
+    )
+
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "is_active": user.is_active,
+        "disabled_reason": user.disabled_reason,
+        "disabled_at": str(user.disabled_at) if user.disabled_at else None,
+    }
 
 
 @router.put("/users/{user_id}")
@@ -259,3 +321,336 @@ async def revoke_permission(
         ip=request.client.host if request.client else None,
     )
     return {"detail": "已撤销"}
+
+
+# ---------- 健康状态 API ----------
+
+
+@router.get("/health/overview")
+async def health_overview(
+    request: Request,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """系统健康概览"""
+    import time
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=admin,
+        action="admin.health.view",
+        request=request,
+    )
+
+    result = {
+        "status": "ok",
+        "database": {"status": "ok", "latency_ms": 0},
+        "redis": {"status": "ok", "latency_ms": 0},
+        "documents": {"total": 0, "indexed": 0, "processing": 0, "failed": 0, "recent_failed": []},
+        "rag_evals": {"total_runs": 0, "latest_score": None, "latest_passed": 0, "latest_failed": 0},
+        "feedback": {"up": 0, "down": 0},
+    }
+
+    # Database check
+    try:
+        t0 = time.time()
+        await db.execute(select(func.count(Document.id)))
+        result["database"]["latency_ms"] = round((time.time() - t0) * 1000)
+    except Exception:
+        result["database"]["status"] = "down"
+        result["status"] = "degraded"
+
+    # Redis check
+    try:
+        from app.core.ratelimit import get_redis
+
+        t0 = time.time()
+        r = await get_redis()
+        await r.ping()
+        result["redis"]["latency_ms"] = round((time.time() - t0) * 1000)
+    except Exception:
+        result["redis"]["status"] = "down"
+        result["status"] = "degraded"
+
+    # Document stats
+    try:
+        doc_stats = await db.execute(
+            select(
+                func.count(Document.id).label("total"),
+                func.sum(func.cast(Document.status == "indexed", type_=func.cast(1, type_=func.count))).label("indexed"),
+                func.sum(func.cast(Document.status == "processing", type_=func.cast(1, type_=func.count))).label("processing"),
+                func.sum(func.cast(Document.status == "failed", type_=func.cast(1, type_=func.count))).label("failed"),
+            )
+        )
+        row = doc_stats.one()
+        result["documents"]["total"] = row.total or 0
+        result["documents"]["indexed"] = row.indexed or 0
+        result["documents"]["processing"] = row.processing or 0
+        result["documents"]["failed"] = row.failed or 0
+
+        # Recent failed
+        failed_result = await db.execute(
+            select(Document)
+            .where(Document.status == "failed")
+            .order_by(Document.updated_at.desc())
+            .limit(5)
+        )
+        result["documents"]["recent_failed"] = [
+            {
+                "id": str(d.id),
+                "title": d.title,
+                "status": d.status,
+                "error_message": (d.error_message or "")[:200],
+                "updated_at": str(d.updated_at) if d.updated_at else None,
+            }
+            for d in failed_result.scalars().all()
+        ]
+    except Exception:
+        result["status"] = "degraded"
+
+    # RAG eval stats
+    try:
+        from app.models.rag_eval import RagEvalRun
+
+        eval_stats = await db.execute(
+            select(
+                func.count(RagEvalRun.id).label("total"),
+                func.count(RagEvalRun.id).filter(RagEvalRun.passed.is_(True)).label("passed"),
+                func.count(RagEvalRun.id).filter(RagEvalRun.passed.is_(False)).label("failed"),
+            )
+        )
+        eval_row = eval_stats.one()
+        result["rag_evals"]["total_runs"] = eval_row.total or 0
+        result["rag_evals"]["latest_passed"] = eval_row.passed or 0
+        result["rag_evals"]["latest_failed"] = eval_row.failed or 0
+
+        # Latest score
+        latest_run = await db.execute(
+            select(RagEvalRun.score).where(RagEvalRun.score.isnot(None)).order_by(RagEvalRun.created_at.desc()).limit(1)
+        )
+        score = latest_run.scalar_one_or_none()
+        result["rag_evals"]["latest_score"] = round(score, 2) if score is not None else None
+    except Exception:
+        pass
+
+    # Feedback stats
+    try:
+        from app.models.message_feedback import MessageFeedback
+
+        fb_stats = await db.execute(
+            select(
+                func.count(MessageFeedback.id).filter(MessageFeedback.rating == "up").label("up"),
+                func.count(MessageFeedback.id).filter(MessageFeedback.rating == "down").label("down"),
+            )
+        )
+        fb_row = fb_stats.one()
+        result["feedback"]["up"] = fb_row.up or 0
+        result["feedback"]["down"] = fb_row.down or 0
+    except Exception:
+        pass
+
+    return result
+
+
+@router.get("/health/indexing")
+async def health_indexing(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """索引状态概览"""
+    # Status counts
+    stats = await db.execute(
+        select(
+            func.count(Document.id).filter(Document.status == "pending").label("pending"),
+            func.count(Document.id).filter(Document.status == "processing").label("processing"),
+            func.count(Document.id).filter(Document.status == "indexed").label("indexed"),
+            func.count(Document.id).filter(Document.status == "failed").label("failed"),
+        )
+    )
+    row = stats.one()
+
+    # Top retry count
+    retry_result = await db.execute(
+        select(Document)
+        .where(Document.retry_count > 0)
+        .order_by(Document.retry_count.desc())
+        .limit(5)
+    )
+    top_retry = [
+        {
+            "id": str(d.id),
+            "title": d.title,
+            "retry_count": d.retry_count,
+            "status": d.status,
+        }
+        for d in retry_result.scalars().all()
+    ]
+
+    # Recent failed
+    failed_result = await db.execute(
+        select(Document)
+        .where(Document.status == "failed")
+        .order_by(Document.updated_at.desc())
+        .limit(5)
+    )
+    recent_failed = [
+        {
+            "id": str(d.id),
+            "title": d.title,
+            "error_message": (d.error_message or "")[:200],
+            "updated_at": str(d.updated_at) if d.updated_at else None,
+        }
+        for d in failed_result.scalars().all()
+    ]
+
+    # Recent indexed
+    indexed_result = await db.execute(
+        select(Document)
+        .where(Document.status == "indexed")
+        .order_by(Document.indexed_at.desc())
+        .limit(5)
+    )
+    recent_indexed = [
+        {
+            "id": str(d.id),
+            "title": d.title,
+            "indexed_at": str(d.indexed_at) if d.indexed_at else None,
+        }
+        for d in indexed_result.scalars().all()
+    ]
+
+    return {
+        "pending": row.pending or 0,
+        "processing": row.processing or 0,
+        "indexed": row.indexed or 0,
+        "failed": row.failed or 0,
+        "top_retry": top_retry,
+        "recent_failed": recent_failed,
+        "recent_indexed": recent_indexed,
+    }
+
+
+@router.get("/health/chat")
+async def health_chat(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """聊天/RAG 健康概览"""
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    day_ago = now - timedelta(hours=24)
+
+    # Recent 24h assistant messages
+    msg_count = await db.scalar(
+        select(func.count(Message.id)).where(
+            Message.role == "assistant",
+            Message.created_at >= day_ago,
+        )
+    )
+
+    # Recent 24h feedback
+    from app.models.message_feedback import MessageFeedback
+
+    fb_stats = await db.execute(
+        select(
+            func.count(MessageFeedback.id).filter(MessageFeedback.rating == "up").label("up"),
+            func.count(MessageFeedback.id).filter(MessageFeedback.rating == "down").label("down"),
+        ).where(MessageFeedback.created_at >= day_ago)
+    )
+    fb_row = fb_stats.one()
+
+    # RAG eval stats
+    from app.models.rag_eval import RagEvalRun
+
+    eval_stats = await db.execute(
+        select(
+            func.count(RagEvalRun.id).label("total"),
+            func.avg(RagEvalRun.score).label("avg_score"),
+            func.count(RagEvalRun.id).filter(RagEvalRun.passed.is_(False)).label("failed"),
+        ).where(RagEvalRun.created_at >= day_ago)
+    )
+    eval_row = eval_stats.one()
+
+    # Top failure reasons
+    failure_result = await db.execute(
+        select(RagEvalRun.failure_reason, func.count(RagEvalRun.id).label("count"))
+        .where(RagEvalRun.passed.is_(False), RagEvalRun.failure_reason.isnot(None))
+        .group_by(RagEvalRun.failure_reason)
+        .order_by(func.count(RagEvalRun.id).desc())
+        .limit(5)
+    )
+    top_failures = [
+        {"reason": row.failure_reason, "count": row.count}
+        for row in failure_result.all()
+    ]
+
+    return {
+        "messages_24h": msg_count or 0,
+        "feedback_up_24h": fb_row.up or 0,
+        "feedback_down_24h": fb_row.down or 0,
+        "rag_eval_avg_score": round(eval_row.avg_score, 2) if eval_row.avg_score else None,
+        "rag_eval_failed_24h": eval_row.failed or 0,
+        "rag_eval_top_failures": top_failures,
+    }
+
+
+@router.get("/audit-logs")
+async def list_audit_logs(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+    action: str | None = None,
+    resource_type: str | None = None,
+    actor_user_id: str | None = None,
+    status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """查询审计日志"""
+    from app.models.audit_log import AuditLog
+
+    limit = min(limit, 100)
+
+    query = select(AuditLog)
+    count_query = select(func.count(AuditLog.id))
+
+    if action:
+        query = query.where(AuditLog.action == action)
+        count_query = count_query.where(AuditLog.action == action)
+    if resource_type:
+        query = query.where(AuditLog.resource_type == resource_type)
+        count_query = count_query.where(AuditLog.resource_type == resource_type)
+    if actor_user_id:
+        query = query.where(AuditLog.user_id == actor_user_id)
+        count_query = count_query.where(AuditLog.user_id == actor_user_id)
+    if status:
+        query = query.where(AuditLog.status == status)
+        count_query = count_query.where(AuditLog.status == status)
+
+    total = await db.scalar(count_query)
+    result = await db.execute(
+        query.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
+    )
+    logs = result.scalars().all()
+
+    return {
+        "items": [
+            {
+                "id": str(log.id),
+                "actor_email": log.actor_email,
+                "action": log.action,
+                "resource_type": log.resource_type,
+                "resource_id": log.resource_id,
+                "status": log.status,
+                "ip": log.ip,
+                "metadata": log.metadata_ or {},
+                "created_at": str(log.created_at),
+            }
+            for log in logs
+        ],
+        "total": total or 0,
+        "limit": limit,
+        "offset": offset,
+    }

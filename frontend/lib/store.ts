@@ -15,12 +15,31 @@ export interface User {
   is_active: boolean;
 }
 
+export interface Citation {
+  index: number;
+  document_id: string;
+  document_title: string;
+  chunk_id: string;
+  snippet: string;
+  score?: number;
+  page?: number;
+  section?: string;
+  locator?: { type: string; value: string };
+}
+
+export interface FeedbackData {
+  rating: string;
+  reason?: string | null;
+}
+
 export interface Message {
   id?: string;
   role: 'user' | 'assistant';
   content: string;
   sources?: Source[];
+  citations?: Citation[];
   rating?: number | null;
+  feedback?: FeedbackData | null;
 }
 
 export interface Conversation {
@@ -90,8 +109,20 @@ interface Store {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
 
-  activeSource: { documentId: string; chunkId: string } | null;
-  setActiveSource: (source: { documentId: string; chunkId: string } | null) => void;
+  activeSource: {
+    documentId: string;
+    chunkId: string;
+    snippet?: string;
+    page?: number;
+    locator?: { type: string; value: string };
+  } | null;
+  setActiveSource: (source: {
+    documentId: string;
+    chunkId: string;
+    snippet?: string;
+    page?: number;
+    locator?: { type: string; value: string };
+  } | null) => void;
 
   // Agent 状态
   agents: Agent[];
@@ -134,7 +165,7 @@ interface Store {
   setAdminStats: (stats: Store['adminStats']) => void;
 
   // 知识库
-  kbs: { id: string; name: string; description: string }[];
+  kbs: { id: string; name: string; description: string; user_role?: string | null }[];
   setKbs: (
     kbs:
       | { id: string; name: string; description: string }[]

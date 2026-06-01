@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -37,6 +37,11 @@ class Agent(Base):
     threshold = Column(Integer, default=30)
     rerank_top_k = Column(Integer, default=3)
     is_active = Column(Boolean, default=True)
+    draft_config = Column(JSONB, default=dict)
+    published_config = Column(JSONB, default=dict)
+    status = Column(String(20), default="draft", nullable=False)  # draft / published / archived
+    published_version = Column(Integer, default=0, nullable=False)
+    last_published_at = Column(DateTime(timezone=True), nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

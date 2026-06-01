@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import logging
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -41,59 +42,70 @@ async def _index(document_id: str):
                 return
 
             doc.status = "processing"
+            doc.error_message = None
             await db.commit()
 
-            chunks = chunker.chunk(doc.content, {"title": doc.title})
-            if not chunks:
-                doc.status = "indexed"
-                await db.commit()
-                return
-
-            await db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == doc.id))
-
-            texts = [c["content"] for c in chunks]
-
-            # 尝试向量化，失败则跳过
-            embeddings = None
             try:
-                from app.core.llm import embedding_service
+                chunks = chunker.chunk(doc.content, {"title": doc.title})
+                if not chunks:
+                    doc.status = "indexed"
+                    doc.indexed_at = datetime.now(timezone.utc)
+                    doc.error_message = None
+                    await db.commit()
+                    return
 
-                embeddings = await embedding_service.embed(texts)
-            except Exception as e:
-                logger.warning(f"Embedding失败，使用全文搜索模式: {e}")
+                await db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == doc.id))
 
-            for i, chunk_data in enumerate(chunks):
-                emb = embeddings[i] if embeddings else None
-                tsv_str = _build_tsvector(chunk_data["content"])
-                db.add(
-                    DocumentChunk(
-                        document_id=doc.id,
-                        chunk_index=chunk_data["index"],
-                        content=chunk_data["content"],
-                        embedding=emb,
-                        tsvector_content=(func.to_tsvector("simple", tsv_str) if tsv_str else None),
-                        metadata_=chunk_data["metadata"],
+                texts = [c["content"] for c in chunks]
+
+                # 尝试向量化，失败则跳过
+                embeddings = None
+                try:
+                    from app.core.llm import embedding_service
+
+                    embeddings = await embedding_service.embed(texts)
+                except Exception as e:
+                    logger.warning(f"Embedding失败，使用全文搜索模式: {e}")
+
+                for i, chunk_data in enumerate(chunks):
+                    emb = embeddings[i] if embeddings else None
+                    tsv_str = _build_tsvector(chunk_data["content"])
+                    db.add(
+                        DocumentChunk(
+                            document_id=doc.id,
+                            chunk_index=chunk_data["index"],
+                            content=chunk_data["content"],
+                            embedding=emb,
+                            tsvector_content=(func.to_tsvector("simple", tsv_str) if tsv_str else None),
+                            metadata_=chunk_data["metadata"],
+                        )
                     )
+
+                doc.status = "indexed"
+                doc.indexed_at = datetime.now(timezone.utc)
+                doc.error_message = None
+                doc.content_hash = hashlib.md5(doc.content.encode()).hexdigest()
+
+                # webhook
+                from app.services.webhook import dispatch
+
+                await dispatch(
+                    db,
+                    "document.indexed",
+                    {
+                        "document_id": document_id,
+                        "title": doc.title,
+                        "status": "indexed",
+                    },
                 )
-
-            doc.status = "indexed"
-            doc.content_hash = hashlib.md5(doc.content.encode()).hexdigest()
-
-            # webhook
-            from app.services.webhook import dispatch
-
-            await dispatch(
-                db,
-                "document.indexed",
-                {
-                    "document_id": document_id,
-                    "title": doc.title,
-                    "status": "indexed",
-                },
-            )
-            await db.commit()
-            documents_indexed_total.inc()
-            logger.info(f"文档索引完成: {doc.title}")
+                await db.commit()
+                documents_indexed_total.inc()
+                logger.info(f"文档索引完成: {doc.title}")
+            except Exception as e:
+                doc.status = "failed"
+                doc.error_message = str(e)[:500]
+                await db.commit()
+                logger.exception(f"文档索引失败: {document_id} - {e}")
     finally:
         await engine.dispose()
 

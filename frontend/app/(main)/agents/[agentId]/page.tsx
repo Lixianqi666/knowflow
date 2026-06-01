@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useStore, Agent, AgentSessionItem } from '@/lib/store';
 import { api } from '@/lib/api';
 import { toast } from '@/components/Toast';
+import AgentConfig from '@/components/AgentConfig';
 
 export default function AgentDetailPage() {
   const router = useRouter();
@@ -98,6 +99,12 @@ export default function AgentDetailPage() {
                 <span>阈值={agent.threshold}%</span>
                 <span>重排={agent.rerank_top_k}</span>
               </div>
+            </div>
+
+            {/* Agent 配置管理 */}
+            <div className="bg-white rounded-xl border p-6 mb-6">
+              <h2 className="font-semibold text-sm text-gray-700 mb-4">配置与调试</h2>
+              <AgentConfig agentId={agentId} />
             </div>
 
             <div className="flex items-center justify-between mb-4">

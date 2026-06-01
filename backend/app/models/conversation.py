@@ -40,6 +40,7 @@ class Message(Base):
     role = Column(String(20), nullable=False, index=True)  # user / assistant / system
     content = Column(Text, nullable=False)
     sources = Column(JSONB, default=list)
+    citations = Column(JSONB, default=list)
     token_count = Column(Integer)
     rating = Column(Integer, nullable=True, index=True)  # 1=赞, -1=踩
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

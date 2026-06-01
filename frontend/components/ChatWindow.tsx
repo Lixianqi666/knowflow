@@ -8,13 +8,14 @@ import InputBox from './InputBox';
 import SourceViewer from './SourceViewer';
 import GoalBar from './GoalBar';
 import { MessageSquare } from 'lucide-react';
-import { Message, Conversation } from '@/lib/store';
+import { Message, Conversation, Citation } from '@/lib/store';
 
 interface ApiMessage {
   id?: string;
   role: 'user' | 'assistant';
   content: string;
   sources?: Message['sources'];
+  citations?: Citation[];
   rating?: number | null;
 }
 
@@ -25,6 +26,7 @@ function mapApiMessages(msgs: ApiMessage[]): Message[] {
         role: m.role,
         content: m.content,
         sources: m.sources || undefined,
+        citations: m.citations || [],
         rating: m.rating,
       }))
     : [];
@@ -271,6 +273,27 @@ export default function ChatWindow() {
     }
   };
 
+  const handleFeedback = async (msgId: string, rating: string, reason?: string) => {
+    try {
+      await api.post(`/chat/messages/${msgId}/feedback`, { rating, reason });
+      useStore.setState((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === msgId ? { ...m, feedback: { rating, reason } } : m
+        ),
+      }));
+    } catch (e) {
+      console.error('反馈失败:', e);
+    }
+  };
+
+  const handleToEvalCase = async (msgId: string) => {
+    try {
+      await api.post(`/rag-evals/messages/${msgId}/to-eval-case`);
+    } catch (e) {
+      console.error('转评测用例失败:', e);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen" style={{ background: 'var(--c-bg)' }}>
       <div className="flex-1 overflow-y-auto px-4 md:px-6">
@@ -304,10 +327,24 @@ export default function ChatWindow() {
                       ? sources
                       : msg.sources
                   }
+                  citations={msg.citations}
                   msgId={msg.id}
                   rating={msg.rating}
-                  onSourceClick={(d, c) => setActiveSource({ documentId: d, chunkId: c })}
+                  feedback={msg.feedback}
+                  onSourceClick={(d, c) => {
+                    // 从 citations 中查找匹配项以传递定位元数据
+                    const cit = msg.citations?.find((ct) => ct.document_id === d && ct.chunk_id === c);
+                    setActiveSource({
+                      documentId: d,
+                      chunkId: c,
+                      snippet: cit?.snippet,
+                      page: cit?.page,
+                      locator: cit?.locator,
+                    });
+                  }}
                   onRate={handleRate}
+                  onFeedback={handleFeedback}
+                  onToEvalCase={handleToEvalCase}
                 />
               ))}
               {waitingFirstToken && (
@@ -423,6 +460,9 @@ export default function ChatWindow() {
         <SourceViewer
           documentId={activeSource.documentId}
           highlightChunkId={activeSource.chunkId}
+          snippet={activeSource.snippet}
+          page={activeSource.page}
+          locator={activeSource.locator}
           onClose={() => setActiveSource(null)}
         />
       )}

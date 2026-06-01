@@ -21,8 +21,12 @@ import UsersTab from './UsersTab';
 import PermissionsTab from './PermissionsTab';
 import TemplatesTab from './TemplatesTab';
 import AgentsTab from './AgentsTab';
-import AuditTab from './AuditTab';
 import StatsTab from './StatsTab';
+import EvalTab from '@/components/EvalTab';
+import HealthTab from '@/components/HealthTab';
+import AuditLogTab from '@/components/AuditTab';
+import RAGDebugPanel from '@/components/RAGDebugPanel';
+import RAGQualityPanel from '@/components/RAGQualityPanel';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -187,6 +191,7 @@ export default function AdminPage() {
       loadKbOptions();
     }
     if (tab === 'audit') loadAuditLogs();
+    if (tab === 'rag_debug') loadKbOptions();
   }, [tab]);
 
   // ---- UsersTab handlers ----
@@ -369,7 +374,7 @@ export default function AdminPage() {
 
   // ---- 渲染 ----
 
-  const tabs: TabKey[] = ['users', 'permissions', 'templates', 'agents', 'audit', 'stats'];
+  const tabs: TabKey[] = ['users', 'permissions', 'templates', 'agents', 'audit', 'stats', 'rag_debug', 'rag_quality'];
 
   return (
     <div className="h-full p-4 md:p-8 pt-14 md:pt-8 overflow-y-auto">
@@ -458,13 +463,15 @@ export default function AdminPage() {
             onSave={handleSaveAgent}
           />
         ) : tab === 'audit' ? (
-          <AuditTab
-            auditLogs={auditLogs}
-            auditLoading={auditLoading}
-            auditFilter={auditFilter}
-            onSetAuditFilter={setAuditFilter}
-            onRefresh={loadAuditLogs}
-          />
+          <AuditLogTab />
+        ) : tab === 'eval' ? (
+          <EvalTab />
+        ) : tab === 'health' ? (
+          <HealthTab />
+        ) : tab === 'rag_debug' ? (
+          <RAGDebugPanel kbOptions={kbOptions} />
+        ) : tab === 'rag_quality' ? (
+          <RAGQualityPanel canUpdate={true} />
         ) : (
           stats && <StatsTab stats={stats} />
         )}

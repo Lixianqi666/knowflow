@@ -1,9 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useStore } from '@/lib/store';
+
+interface SSOProvider {
+  id: string;
+  name: string;
+  enabled: boolean;
+  login_url: string | null;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +21,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ssoProviders, setSsoProviders] = useState<SSOProvider[]>([]);
+
+  useEffect(() => {
+    api
+      .get<{ providers: SSOProvider[] }>('/auth/sso/providers')
+      .then((data) => setSsoProviders(data.providers || []))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,6 +248,44 @@ export default function LoginPage() {
               {isRegister ? '去登录' : '去注册'}
             </button>
           </p>
+
+          {/* SSO 预留 */}
+          {!isRegister && ssoProviders.length > 0 && (
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t" style={{ borderColor: 'var(--c-border)' }} />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2" style={{ background: 'var(--c-bg)', color: 'var(--c-text-tertiary)' }}>
+                    或
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                {ssoProviders.map((p) =>
+                  p.enabled ? (
+                    <a
+                      key={p.id}
+                      href={p.login_url || '#'}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-all"
+                      style={{ borderColor: 'var(--c-border)', color: 'var(--c-text-secondary)' }}
+                    >
+                      使用 {p.name} 登录
+                    </a>
+                  ) : (
+                    <div
+                      key={p.id}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-xs"
+                      style={{ borderColor: 'var(--c-border)', color: 'var(--c-text-tertiary)', opacity: 0.6 }}
+                    >
+                      企业登录（{p.name}）未配置
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

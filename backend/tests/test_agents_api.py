@@ -23,6 +23,14 @@ async def test_agent_message_stream_emits_trace(
     assert agent_resp.status_code == 200
     agent_id = agent_resp.json()["id"]
 
+    # 设置 draft 并发布
+    await client.patch(
+        f"/api/v1/agents/{agent_id}/config",
+        headers=admin_headers,
+        json={"system_prompt": ""},
+    )
+    await client.post(f"/api/v1/agents/{agent_id}/publish", headers=admin_headers)
+
     session_resp = await client.post(
         f"/api/v1/agents/{agent_id}/sessions",
         headers=auth_headers,
