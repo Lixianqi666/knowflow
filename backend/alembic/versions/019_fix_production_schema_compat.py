@@ -19,70 +19,83 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def _table_exists(inspector, name: str) -> bool:
-    return name in inspector.get_table_names()
+def _has_table(bind, name: str) -> bool:
+    return name in inspect(bind).get_table_names()
 
 
-def _column_exists(inspector, table: str, column: str) -> bool:
-    return any(c["name"] == column for c in inspector.get_columns(table))
+def _has_column(bind, table: str, col: str) -> bool:
+    try:
+        return any(c["name"] == col for c in inspect(bind).get_columns(table))
+    except Exception:
+        return False
 
 
-def _add_column_if_missing(table: str, column: sa.Column):
-    """Add column only if it doesn't exist"""
-    bind = op.get_bind()
-    inspector = inspect(bind)
-    if not _column_exists(inspector, table, column.name):
+def _has_index(bind, table: str, idx_name: str) -> bool:
+    try:
+        return any(i["name"] == idx_name for i in inspect(bind).get_indexes(table))
+    except Exception:
+        return False
+
+
+def _add_col(bind, table: str, column: sa.Column):
+    if not _has_column(bind, table, column.name):
         op.add_column(table, column)
+
+
+def _ensure_nullable(table: str, column: str):
+    """Use raw SQL to drop NOT NULL — survives transaction issues from prior ops."""
+    op.execute(
+        text(
+            f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"
+        )
+    )
 
 
 def upgrade() -> None:
     bind = op.get_bind()
-    inspector = inspect(bind)
 
-    # --- audit_logs: ensure resource_type is nullable ---
-    if _table_exists(inspector, "audit_logs"):
-        if _column_exists(inspector, "audit_logs", "resource_type"):
-            op.alter_column("audit_logs", "resource_type", nullable=True)
-        # Add columns from migration 013 if missing
-        _add_column_if_missing("audit_logs", sa.Column("actor_email", sa.String(255), nullable=True))
-        _add_column_if_missing("audit_logs", sa.Column("status", sa.String(20), nullable=True, server_default="success"))
-        _add_column_if_missing("audit_logs", sa.Column("user_agent", sa.String(500), nullable=True))
-        _add_column_if_missing("audit_logs", sa.Column("metadata", JSONB(), nullable=True, server_default="{}"))
-        # Widen action column if needed
-        try:
-            op.alter_column("audit_logs", "action", type_=sa.String(100))
-        except Exception:
-            pass
+    # ── audit_logs ──────────────────────────────────────────────
+    if _has_table(bind, "audit_logs"):
+        _add_col(bind, "audit_logs", sa.Column("actor_email", sa.String(255), nullable=True))
+        _add_col(bind, "audit_logs", sa.Column("status", sa.String(20), nullable=True, server_default="success"))
+        _add_col(bind, "audit_logs", sa.Column("user_agent", sa.String(500), nullable=True))
+        _add_col(bind, "audit_logs", sa.Column("metadata", JSONB(), nullable=True, server_default="{}"))
 
-    # --- users: add missing columns from migration 016 ---
-    if _table_exists(inspector, "users"):
-        _add_column_if_missing("users", sa.Column("disabled_reason", sa.Text(), nullable=True))
-        _add_column_if_missing("users", sa.Column("disabled_at", sa.DateTime(timezone=True), nullable=True))
-        _add_column_if_missing("users", sa.Column("failed_login_count", sa.Integer(), nullable=True, server_default="0"))
+        # resource_type must be nullable — raw SQL is immune to prior txn state
+        _ensure_nullable("audit_logs", "resource_type")
 
-    # --- documents: add missing columns from migration 010 ---
-    if _table_exists(inspector, "documents"):
-        _add_column_if_missing("documents", sa.Column("error_message", sa.Text(), nullable=True))
-        _add_column_if_missing("documents", sa.Column("retry_count", sa.Integer(), nullable=True, server_default="0"))
+        # resource_id also nullable (some audit events don't have a resource)
+        _ensure_nullable("audit_logs", "resource_id")
 
-    # --- messages: add missing columns from migration 011 ---
-    if _table_exists(inspector, "messages"):
-        _add_column_if_missing("messages", sa.Column("citations", JSONB(), nullable=True, server_default="[]"))
+    # ── users ───────────────────────────────────────────────────
+    if _has_table(bind, "users"):
+        _add_col(bind, "users", sa.Column("disabled_reason", sa.Text(), nullable=True))
+        _add_col(bind, "users", sa.Column("disabled_at", sa.DateTime(timezone=True), nullable=True))
+        _add_col(bind, "users", sa.Column("failed_login_count", sa.Integer(), nullable=True, server_default="0"))
 
-    # --- knowledge_bases: add missing columns from migration 017 ---
-    if _table_exists(inspector, "knowledge_bases"):
-        _add_column_if_missing("knowledge_bases", sa.Column("rag_config", JSONB(), nullable=True))
+    # ── documents ───────────────────────────────────────────────
+    if _has_table(bind, "documents"):
+        _add_col(bind, "documents", sa.Column("error_message", sa.Text(), nullable=True))
+        _add_col(bind, "documents", sa.Column("retry_count", sa.Integer(), nullable=True, server_default="0"))
 
-    # --- agents: add missing columns from migration 014 ---
-    if _table_exists(inspector, "agents"):
-        _add_column_if_missing("agents", sa.Column("draft_config", JSONB(), nullable=True))
-        _add_column_if_missing("agents", sa.Column("published_config", JSONB(), nullable=True))
-        _add_column_if_missing("agents", sa.Column("status", sa.String(20), nullable=True, server_default="draft"))
-        _add_column_if_missing("agents", sa.Column("published_version", sa.Integer(), nullable=True))
-        _add_column_if_missing("agents", sa.Column("last_published_at", sa.DateTime(timezone=True), nullable=True))
+    # ── messages ────────────────────────────────────────────────
+    if _has_table(bind, "messages"):
+        _add_col(bind, "messages", sa.Column("citations", JSONB(), nullable=True, server_default="[]"))
 
-    # --- message_feedbacks: create table if missing (from migration 011) ---
-    if not _table_exists(inspector, "message_feedbacks"):
+    # ── knowledge_bases ─────────────────────────────────────────
+    if _has_table(bind, "knowledge_bases"):
+        _add_col(bind, "knowledge_bases", sa.Column("rag_config", JSONB(), nullable=True))
+
+    # ── agents ──────────────────────────────────────────────────
+    if _has_table(bind, "agents"):
+        _add_col(bind, "agents", sa.Column("draft_config", JSONB(), nullable=True))
+        _add_col(bind, "agents", sa.Column("published_config", JSONB(), nullable=True))
+        _add_col(bind, "agents", sa.Column("status", sa.String(20), nullable=True, server_default="draft"))
+        _add_col(bind, "agents", sa.Column("published_version", sa.Integer(), nullable=True))
+        _add_col(bind, "agents", sa.Column("last_published_at", sa.DateTime(timezone=True), nullable=True))
+
+    # ── message_feedbacks ───────────────────────────────────────
+    if not _has_table(bind, "message_feedbacks"):
         op.create_table(
             "message_feedbacks",
             sa.Column("id", UUID(as_uuid=True), primary_key=True),
@@ -94,11 +107,13 @@ def upgrade() -> None:
             sa.Column("updated_at", sa.DateTime(timezone=True)),
             sa.UniqueConstraint("message_id", "user_id", name="uq_message_feedback_user"),
         )
-        op.create_index("ix_message_feedbacks_message_id", "message_feedbacks", ["message_id"])
-        op.create_index("ix_message_feedbacks_user_id", "message_feedbacks", ["user_id"])
+        if not _has_index(bind, "message_feedbacks", "ix_message_feedbacks_message_id"):
+            op.create_index("ix_message_feedbacks_message_id", "message_feedbacks", ["message_id"])
+        if not _has_index(bind, "message_feedbacks", "ix_message_feedbacks_user_id"):
+            op.create_index("ix_message_feedbacks_user_id", "message_feedbacks", ["user_id"])
 
-    # --- rag_eval_cases: create table if missing (from migration 012) ---
-    if not _table_exists(inspector, "rag_eval_cases"):
+    # ── rag_eval_cases ──────────────────────────────────────────
+    if not _has_table(bind, "rag_eval_cases"):
         op.create_table(
             "rag_eval_cases",
             sa.Column("id", UUID(as_uuid=True), primary_key=True),
@@ -112,8 +127,8 @@ def upgrade() -> None:
             sa.Column("updated_at", sa.DateTime(timezone=True)),
         )
 
-    # --- rag_eval_runs: create table if missing (from migration 012) ---
-    if not _table_exists(inspector, "rag_eval_runs"):
+    # ── rag_eval_runs ───────────────────────────────────────────
+    if not _has_table(bind, "rag_eval_runs"):
         op.create_table(
             "rag_eval_runs",
             sa.Column("id", UUID(as_uuid=True), primary_key=True),
@@ -128,8 +143,8 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(timezone=True)),
         )
 
-    # --- knowledge_base_members: create table if missing (from migration 015) ---
-    if not _table_exists(inspector, "knowledge_base_members"):
+    # ── knowledge_base_members ──────────────────────────────────
+    if not _has_table(bind, "knowledge_base_members"):
         op.create_table(
             "knowledge_base_members",
             sa.Column("id", UUID(as_uuid=True), primary_key=True),
@@ -142,8 +157,8 @@ def upgrade() -> None:
             sa.UniqueConstraint("knowledge_base_id", "user_id", name="uq_kb_member_user"),
         )
 
-    # --- rag_quality_issues: create table if missing (from migration 018) ---
-    if not _table_exists(inspector, "rag_quality_issues"):
+    # ── rag_quality_issues ──────────────────────────────────────
+    if not _has_table(bind, "rag_quality_issues"):
         op.create_table(
             "rag_quality_issues",
             sa.Column("id", UUID(as_uuid=True), primary_key=True),
@@ -169,5 +184,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # No-op: cannot safely revert compatibility fixes
     pass
