@@ -220,6 +220,145 @@ async def test_source_read_only_cannot_delete(
     assert resp.status_code == 403
 
 
+# ---------- 文档状态与重试测试 ----------
+
+
+@pytest.mark.asyncio
+async def test_upload_default_status(client: AsyncClient, auth_headers: dict):
+    """上传文档后默认状态为 pending"""
+    resp = await client.post(
+        "/api/v1/documents/upload",
+        headers=auth_headers,
+        files={"file": ("status_test.txt", b"test content", "text/plain")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    # 获取文档详情
+    resp = await client.get(f"/api/v1/documents/{doc_id}", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] in ("pending", "processing", "indexed")
+    assert data["retry_count"] == 0
+    assert data["error_message"] is None
+
+
+@pytest.mark.asyncio
+async def test_document_list_returns_status_fields(client: AsyncClient, auth_headers: dict):
+    """文档列表返回 status / error_message / retry_count / indexed_at"""
+    resp = await client.get("/api/v1/documents", headers=auth_headers)
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) > 0
+    doc = items[0]
+    assert "status" in doc
+    assert "error_message" in doc
+    assert "retry_count" in doc
+    assert "indexed_at" in doc
+
+
+@pytest.mark.asyncio
+async def test_retry_index_on_failed_doc(client: AsyncClient, auth_headers: dict, db_session_factory):
+    """failed 状态文档可以重试"""
+    # 上传文档
+    resp = await client.post(
+        "/api/v1/documents/upload",
+        headers=auth_headers,
+        files={"file": ("retry_test.txt", b"test", "text/plain")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    # 手动设为 failed
+    async with db_session_factory() as session:
+        from app.models.document import Document as DocModel
+        doc = await session.get(DocModel, doc_id)
+        doc.status = "failed"
+        doc.error_message = "测试错误"
+        doc.retry_count = 0
+        await session.commit()
+
+    # 重试
+    resp = await client.post(f"/api/v1/documents/{doc_id}/retry-index", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "pending"
+    assert data["retry_count"] == 1
+    assert data["error_message"] is None
+
+
+@pytest.mark.asyncio
+async def test_retry_index_rejects_indexed(client: AsyncClient, auth_headers: dict, db_session_factory):
+    """indexed 状态文档不允许重试"""
+    resp = await client.post(
+        "/api/v1/documents/upload",
+        headers=auth_headers,
+        files={"file": ("no_retry.txt", b"test", "text/plain")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    # 手动设为 indexed
+    async with db_session_factory() as session:
+        from app.models.document import Document as DocModel
+        doc = await session.get(DocModel, doc_id)
+        doc.status = "indexed"
+        await session.commit()
+
+    resp = await client.post(f"/api/v1/documents/{doc_id}/retry-index", headers=auth_headers)
+    assert resp.status_code == 400
+    assert "不允许重试" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_retry_index_permission_denied(client: AsyncClient, auth_headers: dict, admin_headers: dict, db_session_factory):
+    """普通用户不能重试无权限文档"""
+    # admin 创建文档
+    resp = await client.post(
+        "/api/v1/documents/upload",
+        headers=admin_headers,
+        files={"file": ("perm_retry.txt", b"test", "text/plain")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    # 设为 failed
+    async with db_session_factory() as session:
+        from app.models.document import Document as DocModel
+        doc = await session.get(DocModel, doc_id)
+        doc.status = "failed"
+        await session.commit()
+
+    # auth 用户重试应 403
+    resp = await client.post(f"/api/v1/documents/{doc_id}/retry-index", headers=auth_headers)
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_retry_index_admin_can_retry(client: AsyncClient, admin_headers: dict, db_session_factory):
+    """admin 可以重试任何有权限的文档"""
+    resp = await client.post(
+        "/api/v1/documents/upload",
+        headers=admin_headers,
+        files={"file": ("admin_retry.txt", b"test", "text/plain")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    # 设为 failed
+    async with db_session_factory() as session:
+        from app.models.document import Document as DocModel
+        doc = await session.get(DocModel, doc_id)
+        doc.status = "failed"
+        doc.error_message = "测试错误"
+        await session.commit()
+
+    resp = await client.post(f"/api/v1/documents/{doc_id}/retry-index", headers=admin_headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "pending"
+    assert resp.json()["retry_count"] == 1
+
+
 # ---------- Batch 操作权限测试 ----------
 
 

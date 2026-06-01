@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 import aiofiles
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import case, delete, func, select
@@ -45,6 +45,7 @@ async def _require_doc_permission(
 
     required: "read" 表示需要读权限，"write" 表示需要写权限
     DocumentPermission 优先；仅当无 DocumentPermission 时才回退到 SourcePermission。
+    最后检查知识库成员权限。
     """
     if user.role == "admin":
         return
@@ -75,11 +76,26 @@ async def _require_doc_permission(
         if src_perm and _permission_allows(src_perm.permission, required):
             return
 
+    # 最后检查知识库成员权限
+    if doc and doc.kb_id:
+        from app.models.knowledge_base import KnowledgeBase
+        from app.services.kb_permissions import can_edit_kb, can_view_kb
+
+        kb = await db.get(KnowledgeBase, doc.kb_id)
+        if kb:
+            if required == "write":
+                if await can_edit_kb(db, user, kb):
+                    return
+            else:
+                if await can_view_kb(db, user, kb):
+                    return
+
     raise HTTPException(status_code=403, detail=f"无权限{action}该文档")
 
 
 @router.post("/upload")
 async def upload_file(
+    request: Request,
     file: UploadFile = File(...),
     kb_id: str | None = None,
     _: None = Depends(upload_rate_limit),
@@ -172,7 +188,7 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="文件内容为空")
 
     result = await db.execute(select(DataSource).where(DataSource.type == "local"))
-    source = result.scalar_one_or_none()
+    source = result.scalars().first()
     if not source:
         source = DataSource(name="本地文件", type="local", created_by=user.id)
         db.add(source)
@@ -198,6 +214,18 @@ async def upload_file(
     from app.tasks.indexing import index_document_task
 
     index_document_task.delay(str(doc.id))
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="document.upload",
+        resource_type="document",
+        resource_id=doc.id,
+        request=request,
+        metadata={"title": doc.title, "kb_id": kb_id},
+    )
 
     logger.info(f"文档上传成功: {doc.title} (id={doc.id}, user={user.id})")
     await cache_delete(f"doclist:{user.id}")
@@ -253,7 +281,10 @@ async def list_documents(
             {
                 "id": str(d.id),
                 "title": d.title,
-                "status": d.status,
+                "status": d.status or "pending",
+                "error_message": d.error_message,
+                "retry_count": d.retry_count or 0,
+                "indexed_at": str(d.indexed_at) if d.indexed_at else None,
                 "kb_id": str(d.kb_id) if d.kb_id else None,
                 "created_at": str(d.created_at),
             }
@@ -331,7 +362,10 @@ async def get_document(
         "id": str(doc.id),
         "title": doc.title,
         "content": doc.content[:5000],
-        "status": doc.status,
+        "status": doc.status or "pending",
+        "error_message": doc.error_message,
+        "retry_count": doc.retry_count or 0,
+        "indexed_at": str(doc.indexed_at) if doc.indexed_at else None,
         "created_at": str(doc.created_at),
     }
 
@@ -339,6 +373,7 @@ async def get_document(
 @router.delete("/{doc_id}")
 async def delete_document(
     doc_id: str,
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -347,6 +382,18 @@ async def delete_document(
         raise HTTPException(status_code=404, detail="文档不存在")
     await _require_doc_permission(db, doc_id, user, "删除", required="write")
     await db.delete(doc)
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="document.delete",
+        resource_type="document",
+        resource_id=doc_id,
+        request=request,
+        metadata={"title": doc.title},
+    )
     await webhook_dispatch(
         db,
         "document.deleted",
@@ -481,6 +528,167 @@ async def batch_reindex(
         index_document_task.delay(str(uid))
 
     return {"detail": f"已触发 {len(valid_ids)} 个文档重新索引"}
+
+
+@router.post("/{doc_id}/retry-index")
+async def retry_index(
+    doc_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """重试文档索引"""
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    await _require_doc_permission(db, doc_id, user, "重试索引", required="write")
+
+    if doc.status not in ("failed", "pending", "processing"):
+        raise HTTPException(status_code=400, detail=f"当前状态 '{doc.status}' 不允许重试")
+
+    doc.retry_count = (doc.retry_count or 0) + 1
+    doc.error_message = None
+    doc.status = "pending"
+    await db.commit()
+
+    from app.tasks.indexing import index_document_task
+
+    index_document_task.delay(str(doc.id))
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="document.retry_index",
+        resource_type="document",
+        resource_id=doc_id,
+        request=request,
+        metadata={"title": doc.title, "retry_count": doc.retry_count},
+    )
+
+    await cache_delete(f"doclist:{user.id}")
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "status": doc.status,
+        "error_message": doc.error_message,
+        "retry_count": doc.retry_count,
+        "indexed_at": str(doc.indexed_at) if doc.indexed_at else None,
+    }
+
+
+@router.get("/{doc_id}/preview")
+async def preview_document(
+    doc_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """文档预览：txt/md 返回文本内容，pdf/docx/xlsx 返回 download_only"""
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    await _require_doc_permission(db, doc_id, user, "预览")
+
+    # 推断文件类型
+    title_lower = (doc.title or "").lower()
+    if title_lower.endswith((".txt", ".md", ".markdown")):
+        file_type = "txt" if title_lower.endswith(".txt") else "md"
+        preview_mode = "text"
+    elif title_lower.endswith(".pdf"):
+        file_type = "pdf"
+        preview_mode = "download_only"
+    elif title_lower.endswith(".docx"):
+        file_type = "docx"
+        preview_mode = "download_only"
+    elif title_lower.endswith(".xlsx"):
+        file_type = "xlsx"
+        preview_mode = "download_only"
+    else:
+        file_type = "unknown"
+        preview_mode = "download_only"
+
+    result: dict = {
+        "document_id": str(doc.id),
+        "title": doc.title,
+        "file_type": file_type,
+        "status": doc.status or "pending",
+        "preview_mode": preview_mode,
+        "download_url": f"/api/v1/documents/{doc.id}/file",
+    }
+
+    if preview_mode == "text" and doc.content:
+        result["content"] = doc.content[:20000]
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="document.preview",
+        resource_type="document",
+        resource_id=doc_id,
+        request=request,
+        metadata={"document_id": doc_id, "file_type": file_type},
+    )
+
+    return result
+
+
+@router.get("/{doc_id}/chunks/{chunk_id}/locator")
+async def get_chunk_locator(
+    doc_id: str,
+    chunk_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取 chunk 定位信息（page/section/locator）"""
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    await _require_doc_permission(db, doc_id, user, "查看")
+
+    chunk = await db.get(DocumentChunk, chunk_id)
+    if not chunk or str(chunk.document_id) != doc_id:
+        raise HTTPException(status_code=404, detail="文档块不存在或不属于该文档")
+
+    meta = chunk.metadata_ or {}
+    page = meta.get("page") or meta.get("page_number")
+    section = meta.get("section") or meta.get("heading")
+
+    locator: dict
+    if page is not None:
+        locator = {"type": "page", "value": str(page)}
+    elif section:
+        locator = {"type": "text", "value": str(section)}
+    else:
+        locator = {"type": "chunk", "value": str(chunk.id)}
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="document.locator_view",
+        resource_type="document",
+        resource_id=doc_id,
+        request=request,
+        metadata={"document_id": doc_id, "chunk_id": chunk_id, "locator_type": locator["type"]},
+    )
+
+    result: dict = {
+        "document_id": str(doc.id),
+        "chunk_id": str(chunk.id),
+        "snippet": chunk.content[:300],
+        "locator": locator,
+    }
+    if page is not None:
+        result["page"] = int(page) if isinstance(page, (int, float, str)) and str(page).isdigit() else page
+    if section:
+        result["section"] = str(section)
+    return result
 
 
 @router.get("/{doc_id}/file")

@@ -108,8 +108,12 @@ async def client():
     import app.models.conversation  # noqa
     import app.models.document  # noqa
     import app.models.feedback  # noqa
+    import app.models.kb_member  # noqa
     import app.models.knowledge_base  # noqa
+    import app.models.message_feedback  # noqa
     import app.models.permission  # noqa
+    import app.models.rag_eval  # noqa
+    import app.models.rag_quality_issue  # noqa
     import app.models.prompt_template  # noqa
     import app.models.reimbursement  # noqa
     import app.models.user  # noqa

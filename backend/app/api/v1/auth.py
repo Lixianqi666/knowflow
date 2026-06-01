@@ -36,11 +36,12 @@ async def register(
 @router.post("/login", response_model=Token)
 async def login(
     data: UserLogin,
+    request: Request,
     response: Response,
     _: None = Depends(auth_rate_limit),
     db: AsyncSession = Depends(get_db),
 ):
-    return await AuthService(db).login(data, response)
+    return await AuthService(db).login(data, response, request=request)
 
 
 @router.post("/refresh", response_model=Token)
@@ -134,3 +135,27 @@ async def logout(
 
     clear_refresh_cookie(response)
     return {"detail": "已退出登录"}
+
+
+# ---------- SSO/OIDC 预留 ----------
+
+
+@router.get("/sso/providers")
+async def sso_providers():
+    """返回可用的 SSO 提供商列表"""
+    return {
+        "providers": [
+            {
+                "id": "oidc",
+                "name": "OIDC",
+                "enabled": False,
+                "login_url": None,
+            }
+        ]
+    }
+
+
+@router.get("/sso/oidc/login")
+async def sso_oidc_login():
+    """OIDC 登录入口（未配置）"""
+    raise HTTPException(status_code=501, detail="OIDC 未配置")

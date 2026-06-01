@@ -4,6 +4,10 @@ export interface User {
   name: string;
   role: string;
   is_active: boolean;
+  is_admin?: boolean;
+  disabled_reason?: string | null;
+  disabled_at?: string | null;
+  failed_login_count?: number;
   created_at: string;
 }
 
@@ -92,6 +96,10 @@ export const TAB_LABELS: Record<string, string> = {
   agents: 'Agent',
   audit: '审计',
   stats: '统计',
+  eval: '评测',
+  health: '健康',
+  rag_debug: 'RAG 调试',
+  rag_quality: 'RAG 质量',
 };
 
-export type TabKey = 'users' | 'stats' | 'permissions' | 'templates' | 'agents' | 'audit';
+export type TabKey = 'users' | 'stats' | 'permissions' | 'templates' | 'agents' | 'audit' | 'eval' | 'health' | 'rag_debug' | 'rag_quality';

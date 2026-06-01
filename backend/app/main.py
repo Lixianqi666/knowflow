@@ -21,6 +21,9 @@ from app.api.v1 import (
 from app.api.v1 import plugins as plugins_router
 from app.api.v1 import (
     prompt_templates,
+    rag_debug,
+    rag_evals,
+    rag_quality,
     webhooks,
 )
 from app.config import settings
@@ -89,6 +92,9 @@ app.include_router(plugins_router.router, prefix="/api/v1")
 app.include_router(mcp.router, prefix="/api/v1")
 app.include_router(agents.router, prefix="/api/v1")
 app.include_router(feedback.router, prefix="/api/v1")
+app.include_router(rag_evals.router, prefix="/api/v1")
+app.include_router(rag_debug.router, prefix="/api/v1")
+app.include_router(rag_quality.router, prefix="/api/v1")
 
 
 @app.exception_handler(Exception)

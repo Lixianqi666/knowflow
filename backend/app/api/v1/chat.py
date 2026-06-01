@@ -16,6 +16,8 @@ from app.schemas.chat import (
     ConversationOut,
     ConversationUpdate,
     MessageCreate,
+    MessageFeedbackCreate,
+    MessageFeedbackOut,
     MessageOut,
     MessageRatingCreate,
 )
@@ -246,6 +248,7 @@ async def send_message(
                     user.role == "admin",
                     template_id=data.template_id,
                     goal=data.goal,
+                    knowledge_base_id=data.knowledge_base_id,
                 ):
                     yield f"data: {event}\n\n"
                 await db.commit()
@@ -286,3 +289,132 @@ async def rate_message(
     msg.rating = data.rating
     await db.flush()
     return {"detail": "已评分", "rating": data.rating}
+
+
+@router.post("/messages/{msg_id}/feedback", response_model=MessageFeedbackOut)
+async def create_feedback(
+    msg_id: UUID,
+    data: MessageFeedbackCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.message_feedback import MessageFeedback
+
+    msg = await db.get(Message, msg_id)
+    if not msg:
+        raise HTTPException(status_code=404, detail="消息不存在")
+    if msg.role != "assistant":
+        raise HTTPException(status_code=400, detail="只能对助手消息反馈")
+    conv = await db.get(Conversation, msg.conversation_id)
+    if not conv or conv.user_id != user.id:
+        raise HTTPException(status_code=404, detail="消息不存在")
+    if data.rating not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="rating 必须是 up 或 down")
+    if data.reason and len(data.reason) > 500:
+        raise HTTPException(status_code=400, detail="reason 不能超过 500 字")
+
+    result = await db.execute(
+        select(MessageFeedback).where(
+            MessageFeedback.message_id == msg_id,
+            MessageFeedback.user_id == user.id,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        existing.rating = data.rating
+        existing.reason = data.reason
+        await db.flush()
+        from app.services.audit_v2 import record_audit_event
+
+        await record_audit_event(
+            db,
+            actor_user=user,
+            action="chat.feedback",
+            resource_type="message",
+            resource_id=msg_id,
+            metadata={"rating": data.rating, "updated": True},
+        )
+        return existing
+
+    fb = MessageFeedback(
+        message_id=msg_id,
+        user_id=user.id,
+        rating=data.rating,
+        reason=data.reason,
+    )
+    db.add(fb)
+    await db.flush()
+
+    # down feedback 自动创建质量问题
+    if data.rating == "down":
+        from app.services.rag_quality import create_issue_from_feedback
+
+        # 获取上一条 user 消息作为 question
+        q_result = await db.execute(
+            select(Message)
+            .where(
+                Message.conversation_id == msg.conversation_id,
+                Message.role == "user",
+                Message.created_at < msg.created_at,
+            )
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        user_msg = q_result.scalar_one_or_none()
+
+        await create_issue_from_feedback(
+            db,
+            message_id=str(msg_id),
+            question=user_msg.content if user_msg else None,
+            answer=msg.content,
+            citations=msg.citations or [],
+            reason=data.reason,
+            created_by=str(user.id),
+        )
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="chat.feedback",
+        resource_type="message",
+        resource_id=msg_id,
+        metadata={"rating": data.rating},
+    )
+    return fb
+
+
+@router.get("/messages/{msg_id}/feedback")
+async def get_feedback(
+    msg_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.message_feedback import MessageFeedback
+
+    msg = await db.get(Message, msg_id)
+    if not msg:
+        raise HTTPException(status_code=404, detail="消息不存在")
+    conv = await db.get(Conversation, msg.conversation_id)
+    if not conv or conv.user_id != user.id:
+        raise HTTPException(status_code=404, detail="消息不存在")
+
+    result = await db.execute(
+        select(MessageFeedback).where(
+            MessageFeedback.message_id == msg_id,
+            MessageFeedback.user_id == user.id,
+        )
+    )
+    fb = result.scalar_one_or_none()
+    if not fb:
+        return None
+    return {
+        "id": str(fb.id),
+        "message_id": str(fb.message_id),
+        "user_id": str(fb.user_id),
+        "rating": fb.rating,
+        "reason": fb.reason,
+        "created_at": str(fb.created_at),
+        "updated_at": str(fb.updated_at),
+    }

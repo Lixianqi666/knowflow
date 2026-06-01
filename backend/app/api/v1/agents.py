@@ -363,6 +363,15 @@ async def send_message(
         if not session or session.user_id != user.id:
             raise HTTPException(status_code=404, detail="会话不存在")
 
+        agent = await db.get(Agent, session.agent_id)
+        if not agent or not agent.is_active:
+            raise HTTPException(status_code=404, detail="Agent 不存在")
+
+        # 未发布的 Agent 只允许 owner/admin 使用
+        if agent.status != "published":
+            if user.role != "admin" and str(agent.created_by) != str(user.id):
+                raise HTTPException(status_code=400, detail="该 Agent 尚未发布，无法使用")
+
         async def event_stream():
             try:
                 ctx = ToolContext(
@@ -432,3 +441,257 @@ async def rate_message(
     msg.rating = data.rating
     await db.flush()
     return {"detail": "已评分", "rating": data.rating}
+
+
+# ---------- Agent 配置管理 ----------
+
+
+def _get_agent_config(agent: Agent) -> dict:
+    """获取 Agent 配置，兼容旧 Agent"""
+    draft = agent.draft_config or {}
+    published = agent.published_config or {}
+    # 有已发布版本且草稿与已发布不一致
+    has_changes = agent.status == "published" and draft != published
+    return {
+        "draft_config": {
+            "system_prompt": draft.get("system_prompt", agent.system_prompt or ""),
+            "knowledge_base_ids": draft.get("knowledge_base_ids", [str(kb.id) for kb in agent.knowledge_bases]),
+            "temperature": draft.get("temperature", 0.2),
+            "max_tokens": draft.get("max_tokens", 1000),
+            "tools": draft.get("tools", []),
+        },
+        "published_config": published,
+        "status": agent.status or "draft",
+        "published_version": agent.published_version or 0,
+        "last_published_at": str(agent.last_published_at) if agent.last_published_at else None,
+        "has_unpublished_changes": has_changes,
+    }
+
+
+@router.get("/{agent_id}/config")
+async def get_agent_config(
+    agent_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    agent = await db.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+    if user.role != "admin" and str(agent.created_by) != str(user.id):
+        raise HTTPException(status_code=403, detail="无权查看该 Agent 配置")
+    return _get_agent_config(agent)
+
+
+class AgentConfigUpdate(BaseModel):
+    system_prompt: str | None = None
+    knowledge_base_ids: list[str] | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    tools: list[str] | None = None
+
+
+@router.patch("/{agent_id}/config")
+async def update_agent_config(
+    agent_id: UUID,
+    data: AgentConfigUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    agent = await db.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+    if user.role != "admin" and str(agent.created_by) != str(user.id):
+        raise HTTPException(status_code=403, detail="无权修改该 Agent 配置")
+
+    draft = dict(agent.draft_config or {})
+
+    if data.system_prompt is not None:
+        if len(data.system_prompt) > 4000:
+            raise HTTPException(status_code=400, detail="system_prompt 不能超过 4000 字")
+        draft["system_prompt"] = data.system_prompt
+
+    if data.temperature is not None:
+        if not (0 <= data.temperature <= 2):
+            raise HTTPException(status_code=400, detail="temperature 必须在 0 到 2 之间")
+        draft["temperature"] = data.temperature
+
+    if data.max_tokens is not None:
+        if not (1 <= data.max_tokens <= 8000):
+            raise HTTPException(status_code=400, detail="max_tokens 必须在 1 到 8000 之间")
+        draft["max_tokens"] = data.max_tokens
+
+    if data.knowledge_base_ids is not None:
+        draft["knowledge_base_ids"] = data.knowledge_base_ids
+
+    if data.tools is not None:
+        draft["tools"] = data.tools
+
+    agent.draft_config = draft
+    await db.flush()
+    await cache_delete(AGENTS_CACHE_KEY)
+    return _get_agent_config(agent)
+
+
+@router.post("/{agent_id}/debug")
+async def debug_agent(
+    agent_id: UUID,
+    data: MessageCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    agent = await db.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+    if user.role != "admin" and str(agent.created_by) != str(user.id):
+        raise HTTPException(status_code=403, detail="无权调试该 Agent")
+
+    draft = agent.draft_config or {}
+    system_prompt = draft.get("system_prompt", agent.system_prompt or "")
+    temperature = draft.get("temperature", 0.2)
+    max_tokens = draft.get("max_tokens", 1000)
+
+    from app.core.llm import llm_service
+    from app.core.prompts import build_messages
+    from app.services.retrieval import RetrievalService
+    from app.config import settings
+
+    # 使用 draft 配置做检索
+    retrieval = RetrievalService(db)
+    kb_ids = draft.get("knowledge_base_ids", [str(kb.id) for kb in agent.knowledge_bases])
+    chunks = []
+    if kb_ids:
+        chunks = await retrieval.search(
+            data.content,
+            str(user.id),
+            is_admin=user.role == "admin",
+            top_k=draft.get("top_k", agent.top_k),
+            threshold=(draft.get("threshold", agent.threshold) or 30) / 100.0,
+        )
+
+    citations = [
+        {
+            "index": i + 1,
+            "document_id": str(c.document_id),
+            "document_title": c.document_title,
+            "chunk_id": str(c.id),
+            "snippet": c.content[:300],
+            "score": round(c.score, 3),
+        }
+        for i, c in enumerate(chunks)
+        if c.score > 0
+    ]
+
+    context = None
+    if chunks:
+        from app.core.prompts import RetrievedChunk, format_retrieved_context
+
+        context = format_retrieved_context(
+            [RetrievedChunk(title=c.document_title, content=c.content) for c in chunks]
+        )
+
+    messages = build_messages(system_prompt, context=context, question=data.content)
+
+    try:
+        answer = await llm_service.complete(
+            messages, temperature=temperature, max_tokens=max_tokens
+        )
+    except Exception as e:
+        answer = f"调试失败: {e}"
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="agent.debug",
+        resource_type="agent",
+        resource_id=agent_id,
+        metadata={"question": data.content[:200]},
+    )
+
+    return {
+        "answer": answer,
+        "citations": citations,
+        "used_config": {
+            "system_prompt": system_prompt[:200],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        },
+    }
+
+
+@router.post("/{agent_id}/publish")
+async def publish_agent(
+    agent_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    agent = await db.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+    if user.role != "admin" and str(agent.created_by) != str(user.id):
+        raise HTTPException(status_code=403, detail="无权发布该 Agent")
+
+    draft = agent.draft_config or {}
+    if not draft:
+        raise HTTPException(status_code=400, detail="草稿配置为空，无法发布")
+
+    from datetime import datetime, timezone
+
+    agent.published_config = dict(draft)
+    agent.published_version = (agent.published_version or 0) + 1
+    agent.status = "published"
+    agent.last_published_at = datetime.now(timezone.utc)
+
+    # 同步旧字段
+    if "system_prompt" in draft:
+        agent.system_prompt = draft["system_prompt"]
+
+    await db.flush()
+    await cache_delete(AGENTS_CACHE_KEY)
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="agent.publish",
+        resource_type="agent",
+        resource_id=agent_id,
+        metadata={"version": agent.published_version},
+    )
+
+    return _get_agent_config(agent)
+
+
+@router.post("/{agent_id}/rollback")
+async def rollback_agent(
+    agent_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    agent = await db.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent 不存在")
+    if user.role != "admin" and str(agent.created_by) != str(user.id):
+        raise HTTPException(status_code=403, detail="无权回滚该 Agent")
+
+    published = agent.published_config
+    if not published:
+        raise HTTPException(status_code=400, detail="没有已发布版本，无法回滚")
+
+    agent.draft_config = dict(published)
+    await db.flush()
+    await cache_delete(AGENTS_CACHE_KEY)
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
+        db,
+        actor_user=user,
+        action="agent.rollback",
+        resource_type="agent",
+        resource_id=agent_id,
+    )
+
+    return _get_agent_config(agent)

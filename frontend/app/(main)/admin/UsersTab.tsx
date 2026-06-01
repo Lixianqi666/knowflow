@@ -45,11 +45,18 @@ export default function UsersTab({
                 </span>
               </td>
               <td className="px-4 py-3 text-center">
-                <span
-                  className={`inline-block w-2 h-2 rounded-full ${
-                    u.is_active ? 'bg-green-500' : 'bg-red-400'
-                  }`}
-                />
+                <div className="flex items-center justify-center gap-1.5">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${
+                      u.is_active ? 'bg-green-500' : 'bg-red-400'
+                    }`}
+                  />
+                  {!u.is_active && u.disabled_reason && (
+                    <span className="text-xs text-gray-400 truncate max-w-[100px]" title={u.disabled_reason}>
+                      {u.disabled_reason}
+                    </span>
+                  )}
+                </div>
               </td>
               <td className="px-4 py-3 text-center space-x-2">
                 {u.id !== currentUserId && (

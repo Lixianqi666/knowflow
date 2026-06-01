@@ -34,6 +34,7 @@ class MessageCreate(BaseModel):
     content: str
     template_id: str | None = None
     goal: str | None = None
+    knowledge_base_id: str | None = None
 
 
 class MessageOut(BaseModel):
@@ -41,6 +42,7 @@ class MessageOut(BaseModel):
     role: str
     content: str
     sources: list = []
+    citations: list = []
     rating: int | None = None
     created_at: datetime
 
@@ -55,3 +57,21 @@ class SSEEvent(BaseModel):
 
 class MessageRatingCreate(BaseModel):
     rating: int  # 1=赞, -1=踩
+
+
+class MessageFeedbackCreate(BaseModel):
+    rating: str  # "up" / "down"
+    reason: str | None = None
+
+
+class MessageFeedbackOut(BaseModel):
+    id: UUID
+    message_id: UUID
+    user_id: UUID
+    rating: str
+    reason: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
