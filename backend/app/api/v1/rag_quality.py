@@ -14,6 +14,7 @@ from app.models.kb_member import KnowledgeBaseMember
 from app.models.knowledge_base import KnowledgeBase
 from app.models.rag_quality_issue import RagQualityIssue
 from app.models.user import User
+from app.services.kb_permissions import can_edit_kb, can_view_kb
 from app.schemas.rag_quality import (
     RagQualityIssueCreate,
     RagQualityIssueOut,
@@ -28,7 +29,6 @@ async def _can_view_issue(db: AsyncSession, user: User, issue: RagQualityIssue) 
     if user.role == "admin":
         return True
     if issue.knowledge_base_id:
-        from app.services.kb_permissions import can_view_kb
         kb = await db.get(KnowledgeBase, issue.knowledge_base_id)
         if kb and await can_view_kb(db, user, kb):
             return True
@@ -42,7 +42,6 @@ async def _can_update_issue(db: AsyncSession, user: User, issue: RagQualityIssue
     if user.role == "admin":
         return True
     if issue.knowledge_base_id:
-        from app.services.kb_permissions import can_edit_kb
         kb = await db.get(KnowledgeBase, issue.knowledge_base_id)
         if kb and await can_edit_kb(db, user, kb):
             return True
