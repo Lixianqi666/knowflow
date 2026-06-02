@@ -121,6 +121,8 @@ async def create_issue(
         kb = await db.get(KnowledgeBase, data.knowledge_base_id)
         if not kb:
             raise HTTPException(status_code=404, detail="知识库不存在")
+        if not await can_view_kb(db, user, kb):
+            raise HTTPException(status_code=403, detail="无权限访问该知识库")
 
     issue = RagQualityIssue(
         knowledge_base_id=data.knowledge_base_id,

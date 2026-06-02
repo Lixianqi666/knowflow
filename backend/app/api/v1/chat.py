@@ -1,4 +1,5 @@
 import json
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,6 +24,8 @@ from app.schemas.chat import (
 )
 from app.services.audit import log as audit_log
 from app.services.chat import ChatService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["对话"])
 
@@ -321,12 +324,13 @@ async def create_feedback(
     )
     existing = result.scalar_one_or_none()
     if existing:
+        old_rating = existing.rating
         existing.rating = data.rating
         existing.reason = data.reason
         await db.flush()
 
-        # 更新为 down 时创建质量问题
         if data.rating == "down":
+            # 更新为 down 时创建质量问题
             from app.services.rag_quality import create_issue_from_feedback
 
             q_result = await db.execute(
@@ -340,15 +344,32 @@ async def create_feedback(
                 .limit(1)
             )
             user_msg = q_result.scalar_one_or_none()
-            await create_issue_from_feedback(
-                db,
-                message_id=str(msg_id),
-                question=user_msg.content if user_msg else None,
-                answer=msg.content,
-                citations=msg.citations or [],
-                reason=data.reason,
-                created_by=str(user.id),
+            try:
+                await create_issue_from_feedback(
+                    db,
+                    message_id=str(msg_id),
+                    question=user_msg.content if user_msg else None,
+                    answer=msg.content,
+                    citations=msg.citations or [],
+                    reason=data.reason,
+                    created_by=str(user.id),
+                )
+            except Exception:
+                logger.exception(f"feedback quality issue 创建失败: msg={msg_id}")
+        elif old_rating == "down" and data.rating == "up":
+            # down→up 时关闭已有质量问题
+            from app.models.rag_quality_issue import RagQualityIssue
+
+            q_result = await db.execute(
+                select(RagQualityIssue).where(
+                    RagQualityIssue.source_type == "feedback",
+                    RagQualityIssue.source_id == str(msg_id),
+                    RagQualityIssue.status.in_(["open", "in_progress"]),
+                )
             )
+            for issue in q_result.scalars().all():
+                issue.status = "ignored"
+                issue.resolution_note = "用户将反馈改为正面"
 
         from app.services.audit_v2 import record_audit_event
 
@@ -388,15 +409,18 @@ async def create_feedback(
         )
         user_msg = q_result.scalar_one_or_none()
 
-        await create_issue_from_feedback(
-            db,
-            message_id=str(msg_id),
-            question=user_msg.content if user_msg else None,
-            answer=msg.content,
-            citations=msg.citations or [],
-            reason=data.reason,
-            created_by=str(user.id),
-        )
+        try:
+            await create_issue_from_feedback(
+                db,
+                message_id=str(msg_id),
+                question=user_msg.content if user_msg else None,
+                answer=msg.content,
+                citations=msg.citations or [],
+                reason=data.reason,
+                created_by=str(user.id),
+            )
+        except Exception:
+            logger.exception(f"feedback quality issue 创建失败: msg={msg_id}")
 
     from app.services.audit_v2 import record_audit_event
 
