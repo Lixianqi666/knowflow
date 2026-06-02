@@ -121,7 +121,7 @@ async def update_user_status(
 
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -166,7 +166,7 @@ async def update_user(
         user.is_active = body.is_active
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -361,7 +361,7 @@ async def health_overview(
     """系统健康概览"""
     import time
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,

@@ -178,7 +178,7 @@ async def debug_search(
         no_result_reason = "未检索到相关内容"
 
     # 审计
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,

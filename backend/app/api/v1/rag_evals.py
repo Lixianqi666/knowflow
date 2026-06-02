@@ -260,7 +260,7 @@ async def run_case(
 
             logging.getLogger(__name__).exception(f"eval quality issue 创建失败: run={run.id}")
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
