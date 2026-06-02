@@ -208,6 +208,8 @@ async def delete_kb(
 
     await db.delete(kb)
     await _invalidate_kb_cache(user, owner_id=kb.created_by)
+    # KB 删除后 agent config 中的 knowledge_base_ids 变为无效，需失效 agent 缓存
+    await cache_delete("cache:agents:active")
     return {"detail": "已删除"}
 
 
