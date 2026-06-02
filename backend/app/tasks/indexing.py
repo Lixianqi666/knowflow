@@ -29,6 +29,33 @@ LOCK_KEY_PREFIX = "lock:index_document:"
 LOCK_TTL = 600
 
 
+async def clear_index_lock(document_id: str) -> bool:
+    """清除文档索引 Redis 锁。返回 True 表示锁已删除或不存在，False 表示连接异常。"""
+    key = f"{LOCK_KEY_PREFIX}{document_id}"
+    # 优先使用全局连接
+    try:
+        from app.core.ratelimit import get_redis
+
+        r = await get_redis()
+        result = await r.delete(key)
+        return True
+    except Exception as e:
+        logger.warning(f"get_redis 删除锁失败，尝试新建连接: {e}")
+    # 全局连接异常时，创建独立连接作为兜底
+    try:
+        import redis.asyncio as aioredis
+
+        r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        try:
+            await r.delete(key)
+            return True
+        finally:
+            await r.aclose()
+    except Exception as e:
+        logger.error(f"新建 Redis 连接删除锁也失败: {e}")
+        return False
+
+
 async def _index(document_id: str):
     """异步索引逻辑"""
     engine = create_async_engine(settings.DATABASE_URL, echo=False)

@@ -1,10 +1,17 @@
 """文档索引 Redis 幂等锁测试"""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.tasks.indexing import _FALLBACK_TOKEN, _RELEASE_LUA, _acquire_lock, _index_with_lock, _release_lock
+from app.tasks.indexing import (
+    _FALLBACK_TOKEN,
+    _RELEASE_LUA,
+    _acquire_lock,
+    _index_with_lock,
+    _release_lock,
+    clear_index_lock,
+)
 
 
 @pytest.mark.asyncio
@@ -126,3 +133,53 @@ async def test_index_with_lock_fallback_still_indexes():
         await _index_with_lock("doc-123")
     mock_index.assert_called_once_with("doc-123")
     mock_release.assert_called_once_with("doc-123", _FALLBACK_TOKEN)
+
+
+# ========== clear_index_lock 测试 ==========
+
+
+@pytest.mark.asyncio
+async def test_clear_index_lock_success():
+    """get_redis 正常时删除锁并返回 True"""
+    mock_redis = AsyncMock()
+    mock_redis.delete.return_value = 1
+    with patch("app.core.ratelimit.get_redis", return_value=mock_redis):
+        result = await clear_index_lock("doc-abc")
+    assert result is True
+    mock_redis.delete.assert_called_once_with("lock:index_document:doc-abc")
+
+
+@pytest.mark.asyncio
+async def test_clear_index_lock_key_not_exist():
+    """锁 key 不存在时 delete 返回 0，仍返回 True（不影响重试）"""
+    mock_redis = AsyncMock()
+    mock_redis.delete.return_value = 0
+    with patch("app.core.ratelimit.get_redis", return_value=mock_redis):
+        result = await clear_index_lock("doc-abc")
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_clear_index_lock_fallback_connection():
+    """get_redis 异常时创建独立连接兜底删除"""
+    mock_fresh_redis = AsyncMock()
+    mock_fresh_redis.delete.return_value = 1
+    with (
+        patch("app.core.ratelimit.get_redis", side_effect=ConnectionError("stale")),
+        patch("redis.asyncio.from_url", return_value=mock_fresh_redis),
+    ):
+        result = await clear_index_lock("doc-abc")
+    assert result is True
+    mock_fresh_redis.delete.assert_called_once_with("lock:index_document:doc-abc")
+    mock_fresh_redis.aclose.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_clear_index_lock_all_connections_fail():
+    """所有 Redis 连接都失败时返回 False"""
+    with (
+        patch("app.core.ratelimit.get_redis", side_effect=ConnectionError("stale")),
+        patch("redis.asyncio.from_url", side_effect=ConnectionError("no redis")),
+    ):
+        result = await clear_index_lock("doc-abc")
+    assert result is False
