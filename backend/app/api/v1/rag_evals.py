@@ -234,21 +234,26 @@ async def run_case(
     db.add(run)
     await db.flush()
 
-    # eval failed 自动创建质量问题
+    # eval failed 自动创建质量问题（失败不阻塞 eval run 保存）
     if not passed:
         from app.services.rag_quality import create_issue_from_eval
 
-        await create_issue_from_eval(
-            db,
-            run_id=str(run.id),
-            case_id=str(case.id),
-            question=case.question,
-            answer=answer,
-            citations=citations,
-            failure_reason=failure_reason,
-            knowledge_base_id=str(case.knowledge_base_id) if case.knowledge_base_id else None,
-            created_by=str(user.id),
-        )
+        try:
+            await create_issue_from_eval(
+                db,
+                run_id=str(run.id),
+                case_id=str(case.id),
+                question=case.question,
+                answer=answer,
+                citations=citations,
+                failure_reason=failure_reason,
+                knowledge_base_id=str(case.knowledge_base_id) if case.knowledge_base_id else None,
+                created_by=str(user.id),
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(f"eval quality issue 创建失败: run={run.id}")
 
     from app.services.audit_v2 import record_audit_event
 

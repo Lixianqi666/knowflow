@@ -13,6 +13,7 @@ from app.agent_runtime.tools import ToolContext
 from app.agent_runtime.trace import step_to_event
 from app.core.cache import cache_delete, cache_get, cache_set
 from app.core.deps import get_current_admin
+from app.core.ratelimit import chat_rate_limit
 from app.core.security import get_current_user
 from app.database import async_session, get_db
 from app.models.agent import Agent
@@ -356,6 +357,7 @@ async def get_messages(
 async def send_message(
     session_id: UUID,
     data: MessageCreate,
+    _: None = Depends(chat_rate_limit),
     user: User = Depends(get_current_user),
 ):
     async with async_session() as db:
