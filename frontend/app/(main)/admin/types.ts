@@ -52,12 +52,13 @@ export interface Template {
 
 export interface AuditLogItem {
   id: string;
-  user_id: string | null;
+  actor_email?: string | null;
   action: string;
-  resource_type: string;
-  resource_id: string | null;
-  detail: string | null;
-  ip: string | null;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  status: string;
+  ip?: string | null;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -83,10 +84,31 @@ export const ACTION_LABELS: Record<string, string> = {
   send_message: '发送消息',
   view_doc: '查看文档',
   download_file: '下载文件',
+  delete_doc: '删除文档',
   admin_update_user: '修改用户',
   admin_grant_permission: '授予权限',
   admin_revoke_permission: '撤销权限',
-  delete_doc: '删除文档',
+  'admin.update_user': '修改用户',
+  'admin.health.view': '查看健康状态',
+  'document.upload': '上传文档',
+  'document.delete': '删除文档',
+  'document.retry_index': '重试索引',
+  'document.preview': '预览文档',
+  'chat.feedback': '对话反馈',
+  'rag_eval.run': '运行评测',
+  'rag_quality.issue_create': '创建质量问题',
+  'rag_quality.issue_update': '更新质量问题',
+  'rag_quality.issue_resolve': '解决质量问题',
+  'knowledge_base.create': '创建知识库',
+  'knowledge_base.delete': '删除知识库',
+  'knowledge_base.member_add': '添加成员',
+  'knowledge_base.member_remove': '移除成员',
+  'agent.publish': '发布 Agent',
+  'agent.debug': '调试 Agent',
+  'auth.login.success': '登录成功',
+  'auth.login.failed': '登录失败',
+  'user.disable': '禁用用户',
+  'user.enable': '启用用户',
 };
 
 export const TAB_LABELS: Record<string, string> = {

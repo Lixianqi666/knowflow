@@ -48,7 +48,7 @@ export default function AuditTab({
               (log) =>
                 !auditFilter ||
                 log.action.includes(auditFilter) ||
-                log.resource_type.includes(auditFilter),
+                (log.resource_type ?? '').includes(auditFilter),
             )
             .map((log) => (
               <div key={log.id} className="bg-white rounded-xl border p-4">
@@ -57,16 +57,19 @@ export default function AuditTab({
                     <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
                       {ACTION_LABELS[log.action] || log.action}
                     </span>
-                    <span className="text-xs text-gray-400">{log.resource_type}</span>
+                    {log.resource_type && <span className="text-xs text-gray-400">{log.resource_type}</span>}
                     {log.ip && <span className="text-xs text-gray-300">{log.ip}</span>}
                   </div>
                   <span className="text-xs text-gray-400">
                     {new Date(log.created_at).toLocaleString()}
                   </span>
                 </div>
-                {log.detail && <p className="text-sm text-gray-600">{log.detail}</p>}
+                {log.actor_email && <p className="text-xs text-gray-400">{log.actor_email}</p>}
                 {log.resource_id && (
                   <p className="text-xs text-gray-400 mt-0.5">资源ID: {log.resource_id}</p>
+                )}
+                {log.metadata && Object.keys(log.metadata).length > 0 && (
+                  <p className="text-xs text-gray-400 mt-0.5 font-mono truncate">{JSON.stringify(log.metadata)}</p>
                 )}
               </div>
             ))}
