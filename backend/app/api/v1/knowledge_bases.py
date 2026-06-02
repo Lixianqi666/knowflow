@@ -108,6 +108,7 @@ async def _clean_agent_configs_after_kb_delete(db: AsyncSession, kb_id: str):
     """KB 删除后清理 agent draft_config/published_config 中的无效 knowledge_base_ids"""
     from app.models.agent import Agent
 
+    any_changed = False
     result = await db.execute(select(Agent))
     for agent in result.scalars().all():
         changed = False
@@ -121,7 +122,8 @@ async def _clean_agent_configs_after_kb_delete(db: AsyncSession, kb_id: str):
                 changed = True
         if changed:
             db.add(agent)
-    if changed:
+            any_changed = True
+    if any_changed:
         await db.flush()
 
 
