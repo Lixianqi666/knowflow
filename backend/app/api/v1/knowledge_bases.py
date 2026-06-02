@@ -118,10 +118,11 @@ async def _clean_agent_configs_after_kb_delete(db: AsyncSession, kb_id: str):
                 continue
             kb_ids = config.get("knowledge_base_ids")
             if isinstance(kb_ids, list) and kb_id in kb_ids:
-                config["knowledge_base_ids"] = [kid for kid in kb_ids if kid != kb_id]
+                new_config = dict(config)
+                new_config["knowledge_base_ids"] = [kid for kid in kb_ids if kid != kb_id]
+                setattr(agent, config_field, new_config)
                 changed = True
         if changed:
-            db.add(agent)
             any_changed = True
     if any_changed:
         await db.flush()
