@@ -33,14 +33,19 @@ async def create_feedback(
     )
     db.add(feedback)
     await db.flush()
-    await webhook_dispatch(
-        db,
-        "feedback.created",
-        {
-            "feedback_id": str(feedback.id),
-            "query": data.query,
-            "feedback_type": data.feedback_type,
-            "user_id": str(user.id),
-        },
-    )
+    try:
+        await webhook_dispatch(
+            db,
+            "feedback.created",
+            {
+                "feedback_id": str(feedback.id),
+                "query": data.query,
+                "feedback_type": data.feedback_type,
+                "user_id": str(user.id),
+            },
+        )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception("feedback webhook 失败，反馈已保存")
     return {"detail": "反馈已记录", "id": str(feedback.id)}

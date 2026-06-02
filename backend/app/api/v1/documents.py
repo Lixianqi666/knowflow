@@ -115,10 +115,12 @@ async def upload_file(
             status_code=413, detail=f"文件过大，最大 {settings.MAX_FILE_SIZE // 1024 // 1024}MB"
         )
 
-    # 清理文件名防止路径穿越
+    # 清理文件名防止路径穿越 + UUID 前缀防覆盖
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    safe_filename = Path(file.filename).name
+    import uuid as _uuid
+
+    safe_filename = f"{_uuid.uuid4().hex[:12]}_{Path(file.filename).name}"
     filepath = upload_dir / safe_filename
 
     async with aiofiles.open(filepath, "wb") as f:
@@ -426,7 +428,7 @@ async def get_document_chunks(
     )
     chunks = result.scalars().all()
     return {
-        "document": {"id": str(doc.id), "title": doc.title, "content": doc.content},
+        "document": {"id": str(doc.id), "title": doc.title, "content": (doc.content or "")[:5000]},
         "chunks": [
             {"id": str(c.id), "chunk_index": c.chunk_index, "content": c.content} for c in chunks
         ],
@@ -749,7 +751,7 @@ async def get_chunk_detail(
     )
     all_chunks = result.scalars().all()
     return {
-        "document": {"id": str(doc.id), "title": doc.title, "content": doc.content},
+        "document": {"id": str(doc.id), "title": doc.title, "content": (doc.content or "")[:5000]},
         "highlight_chunk_id": str(chunk_id),
         "chunks": [
             {"id": str(c.id), "chunk_index": c.chunk_index, "content": c.content}

@@ -382,6 +382,10 @@ async def send_message(
                     is_admin=user.role == "admin",
                     db=db,
                 )
+                # 先保存用户消息，确保失败时也有记录
+                db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
+                await db.flush()
+
                 state = await _agent_runtime.run(data.content, ctx)
 
                 for step in state.steps:
@@ -389,7 +393,6 @@ async def send_message(
 
                 if state.clarify_question or state.final_answer:
                     answer = state.clarify_question or state.final_answer
-                    db.add(AgentMessage(session_id=session_id, role="user", content=data.content))
                     db.add(
                         AgentMessage(
                             session_id=session_id,
@@ -538,6 +541,7 @@ async def update_agent_config(
 async def debug_agent(
     agent_id: UUID,
     data: MessageCreate,
+    _: None = Depends(chat_rate_limit),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -598,7 +602,10 @@ async def debug_agent(
             messages, temperature=temperature, max_tokens=max_tokens
         )
     except Exception as e:
-        answer = f"调试失败: {e}"
+        import logging
+
+        logging.getLogger(__name__).exception(f"Agent 调试 LLM 调用失败: agent={agent_id}")
+        answer = "调试失败: LLM 服务异常，请稍后重试"
 
     from app.services.audit_v2 import record_audit_event
 
