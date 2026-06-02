@@ -104,6 +104,27 @@ async def _invalidate_kb_cache(user: User, owner_id=None):
         await cache_delete(f"cache:kb:list:{owner_id}")
 
 
+async def _clean_agent_configs_after_kb_delete(db: AsyncSession, kb_id: str):
+    """KB 删除后清理 agent draft_config/published_config 中的无效 knowledge_base_ids"""
+    from app.models.agent import Agent
+
+    result = await db.execute(select(Agent))
+    for agent in result.scalars().all():
+        changed = False
+        for config_field in ("draft_config", "published_config"):
+            config = getattr(agent, config_field)
+            if not config or not isinstance(config, dict):
+                continue
+            kb_ids = config.get("knowledge_base_ids")
+            if isinstance(kb_ids, list) and kb_id in kb_ids:
+                config["knowledge_base_ids"] = [kid for kid in kb_ids if kid != kb_id]
+                changed = True
+        if changed:
+            db.add(agent)
+    if changed:
+        await db.flush()
+
+
 @router.post("/")
 async def create_kb(
     request: Request,
@@ -208,7 +229,8 @@ async def delete_kb(
 
     await db.delete(kb)
     await _invalidate_kb_cache(user, owner_id=kb.created_by)
-    # KB 删除后 agent config 中的 knowledge_base_ids 变为无效，需失效 agent 缓存
+    # KB 删除后 agent config 中的 knowledge_base_ids 变为无效，需清理并失效缓存
+    await _clean_agent_configs_after_kb_delete(db, str(kb_id))
     await cache_delete("cache:agents:active")
     return {"detail": "已删除"}
 
