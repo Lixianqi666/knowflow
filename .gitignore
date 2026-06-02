@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Node.js
+node_modules/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Uploads
+backend/uploads/
+hf_cache/
+
+# Logs
+*.log
+
+# Docker
+docker-compose.override.yml
+
+# Database
+*.sql
+*.dump
+*.backup
+
+# Build artifacts
+*.tsbuildinfo
+
+# Generated reports
+backend/evals/reports/latest.json
+backend/evals/reports/latest.md
