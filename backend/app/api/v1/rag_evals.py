@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.ratelimit import chat_rate_limit
 from app.core.security import get_current_user
 from app.database import get_db
 from app.models.conversation import Conversation, Message
@@ -160,6 +161,7 @@ async def delete_case(
 @router.post("/cases/{case_id}/run", response_model=RagEvalRunOut)
 async def run_case(
     case_id: UUID,
+    _: None = Depends(chat_rate_limit),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -210,7 +212,10 @@ async def run_case(
         try:
             answer = await llm_service.complete(messages, temperature=0.0)
         except Exception as e:
-            answer = f"LLM 调用失败: {e}"
+            import logging
+
+            logging.getLogger(__name__).exception(f"RAG eval LLM 调用失败: case={case.id}")
+            answer = "LLM 调用失败，请稍后重试"
     else:
         answer = "没有找到足够依据，无法回答此问题。"
 

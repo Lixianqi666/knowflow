@@ -37,7 +37,7 @@ async def mcp_call(req: MCPRequest, user: User = Depends(get_current_user)):
     elif req.tool == "get_document":
         return await _get_document(req.arguments, user)
     elif req.tool == "list_knowledge_bases":
-        return await _list_kbs()
+        return await _list_kbs(user)
     raise HTTPException(400, f"未知工具: {req.tool}")
 
 
@@ -89,14 +89,29 @@ async def _get_document(args: dict, user: User):
         return {"title": doc.title, "content": doc.content[:3000]}
 
 
-async def _list_kbs():
+async def _list_kbs(user: User):
     from sqlalchemy import select
 
     from app.database import async_session
+    from app.models.kb_member import KnowledgeBaseMember
     from app.models.knowledge_base import KnowledgeBase
 
     async with async_session() as db:
-        result = await db.execute(select(KnowledgeBase).order_by(KnowledgeBase.name))
+        if user.role == "admin":
+            query = select(KnowledgeBase).order_by(KnowledgeBase.name)
+        else:
+            member_kb_ids = select(KnowledgeBaseMember.knowledge_base_id).where(
+                KnowledgeBaseMember.user_id == user.id
+            )
+            query = (
+                select(KnowledgeBase)
+                .where(
+                    (KnowledgeBase.created_by == user.id)
+                    | (KnowledgeBase.id.in_(member_kb_ids))
+                )
+                .order_by(KnowledgeBase.name)
+            )
+        result = await db.execute(query)
         return [
             {"id": str(kb.id), "name": kb.name, "description": kb.description}
             for kb in result.scalars().all()

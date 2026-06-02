@@ -55,7 +55,9 @@ async def upload_rate_limit(request: Request):
 
 
 async def _check(name: str, limit: int, window: int, key: str):
-    if os.getenv("TESTING"):
+    from app.config import settings
+
+    if os.getenv("TESTING") and settings.ENVIRONMENT != "production":
         return
     r = await get_redis()
     now = time.time()

@@ -438,6 +438,13 @@ async def get_document_chunks(
 class BatchIds(BaseModel):
     ids: list[str]
 
+    class Config:
+        # 限制批量操作最大数量，防止 DoS
+        json_schema_extra = {"example": {"ids": ["doc-id-1", "doc-id-2"]}}
+
+
+_BATCH_MAX = 100
+
 
 async def _filter_authorized_doc_ids(
     data: BatchIds, user: User, db: AsyncSession, required: str = "read"
@@ -506,6 +513,8 @@ async def batch_delete(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if len(data.ids) > _BATCH_MAX:
+        raise HTTPException(status_code=400, detail=f"批量操作最多 {_BATCH_MAX} 个文档")
     valid_ids = await _filter_authorized_doc_ids(data, user, db, required="write")
     if not valid_ids:
         return {"detail": "已删除 0 个文档"}
@@ -520,6 +529,8 @@ async def batch_reindex(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if len(data.ids) > _BATCH_MAX:
+        raise HTTPException(status_code=400, detail=f"批量操作最多 {_BATCH_MAX} 个文档")
     valid_ids = await _filter_authorized_doc_ids(data, user, db, required="write")
     if not valid_ids:
         return {"detail": "已触发 0 个文档重新索引"}
