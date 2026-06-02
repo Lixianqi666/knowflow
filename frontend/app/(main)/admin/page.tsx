@@ -92,17 +92,6 @@ export default function AdminPage() {
     }
   };
 
-  const loadAuditLogs = async () => {
-    setAuditLoading(true);
-    try {
-      const logs = await api.get<AuditLogItem[]>('/audit/logs?limit=200');
-      setAuditLogs(logs);
-    } catch (e) {
-      console.error('加载审计日志失败:', e);
-    }
-    setAuditLoading(false);
-  };
-
   const loadAgentItems = async () => {
     try {
       const items = await api.get<AgentItem[]>('/agents/admin-list');
@@ -190,7 +179,6 @@ export default function AdminPage() {
       loadAgentItems();
       loadKbOptions();
     }
-    if (tab === 'audit') loadAuditLogs();
     if (tab === 'rag_debug') loadKbOptions();
   }, [tab]);
 
@@ -374,7 +362,7 @@ export default function AdminPage() {
 
   // ---- 渲染 ----
 
-  const tabs: TabKey[] = ['users', 'permissions', 'templates', 'agents', 'audit', 'stats', 'rag_debug', 'rag_quality'];
+  const tabs: TabKey[] = ['users', 'permissions', 'templates', 'agents', 'audit', 'stats', 'eval', 'health', 'rag_debug', 'rag_quality'];
 
   return (
     <div className="h-full p-4 md:p-8 pt-14 md:pt-8 overflow-y-auto">
