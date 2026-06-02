@@ -1,0 +1,46 @@
+version: 2
+expires_at: "2026-06-30"
+misconfig: []
+secret: []
+vulnerability:
+  # Next.js bundles tar 6.2.1 in dist/compiled/ — build-time only, not runtime reachable.
+  # Remove once upstream Next.js updates bundled tar to >=7.5.11.
+  - id: CVE-2026-23745
+    paths:
+      - "app/node_modules/next/dist/compiled/tar/**"
+  - id: CVE-2026-23950
+    paths:
+      - "app/node_modules/next/dist/compiled/tar/**"
+  - id: CVE-2026-24842
+    paths:
+      - "app/node_modules/next/dist/compiled/tar/**"
+  - id: CVE-2026-26960
+    paths:
+      - "app/node_modules/next/dist/compiled/tar/**"
+  - id: CVE-2026-29786
+    paths:
+      - "app/node_modules/next/dist/compiled/tar/**"
+  - id: CVE-2026-31802
+    paths:
+      - "app/node_modules/next/dist/compiled/tar/**"
+  # Next.js bundles cross-spawn in dist/compiled/ — build-time only.
+  # Remove once upstream Next.js updates bundled cross-spawn to >=7.0.5.
+  - id: CVE-2024-21538
+    paths:
+      - "app/node_modules/next/dist/compiled/cross-spawn/**"
+  # Next.js bundles glob in dist/compiled/ — build-time only.
+  # Remove once upstream Next.js updates bundled glob to >=10.5.0.
+  - id: CVE-2025-64756
+    paths:
+      - "app/node_modules/next/dist/compiled/glob/**"
+  # Next.js bundles minimatch via eslint-config-next — build-time only.
+  # Remove once upstream eslint-config-next updates minimatch to >=9.0.6.
+  - id: CVE-2026-26996
+    paths:
+      - "app/node_modules/next/dist/compiled/**"
+  - id: CVE-2026-27903
+    paths:
+      - "app/node_modules/next/dist/compiled/**"
+  - id: CVE-2026-27904
+    paths:
+      - "app/node_modules/next/dist/compiled/**"
