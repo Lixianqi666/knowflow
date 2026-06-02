@@ -371,7 +371,7 @@ async def create_feedback(
                 issue.status = "ignored"
                 issue.resolution_note = "用户将反馈改为正面"
 
-        from app.services.audit_v2 import record_audit_event
+        from app.services.audit import record_audit_event
 
         await record_audit_event(
             db,
@@ -422,7 +422,7 @@ async def create_feedback(
         except Exception:
             logger.exception(f"feedback quality issue 创建失败: msg={msg_id}")
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,

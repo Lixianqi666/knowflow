@@ -149,7 +149,7 @@ async def create_kb(
     db.add(member)
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -188,7 +188,7 @@ async def update_kb(
         kb.description = data.description
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -219,7 +219,7 @@ async def delete_kb(
     if not await can_manage_kb(db, user, kb):
         raise HTTPException(status_code=403, detail="无权删除该知识库")
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -296,7 +296,7 @@ async def update_rag_config(
     kb.rag_config = new_config
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -358,7 +358,7 @@ async def reindex_kb(
             index_document_task.delay(doc_id)
             queued += 1
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -449,7 +449,7 @@ async def add_member(
     db.add(member)
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -515,7 +515,7 @@ async def update_member(
     member.role = data.role
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -573,7 +573,7 @@ async def remove_member(
 
     await db.delete(member)
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,

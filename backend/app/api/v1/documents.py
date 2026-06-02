@@ -217,7 +217,7 @@ async def upload_file(
 
     index_document_task.delay(str(doc.id))
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -385,7 +385,7 @@ async def delete_document(
     await _require_doc_permission(db, doc_id, user, "删除", required="write")
     await db.delete(doc)
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -584,7 +584,7 @@ async def retry_index(
 
     index_document_task.delay(str(doc.id))
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -650,7 +650,7 @@ async def preview_document(
     if preview_mode == "text" and doc.content:
         result["content"] = doc.content[:20000]
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -695,7 +695,7 @@ async def get_chunk_locator(
     else:
         locator = {"type": "chunk", "value": str(chunk.id)}
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,

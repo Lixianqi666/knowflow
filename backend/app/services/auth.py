@@ -67,7 +67,7 @@ class AuthService:
             if user:
                 user.failed_login_count = (user.failed_login_count or 0) + 1
 
-            from app.services.audit_v2 import record_audit_event
+            from app.services.audit import record_audit_event
 
             await record_audit_event(
                 self.db,
@@ -83,7 +83,7 @@ class AuthService:
         if not user.is_active:
             user.failed_login_count = (user.failed_login_count or 0) + 1
 
-            from app.services.audit_v2 import record_audit_event
+            from app.services.audit import record_audit_event
 
             await record_audit_event(
                 self.db,
@@ -101,7 +101,7 @@ class AuthService:
         refresh_token, _, max_age = create_refresh_token(str(user.id))
         set_refresh_cookie(response, refresh_token, max_age)
 
-        from app.services.audit_v2 import record_audit_event
+        from app.services.audit import record_audit_event
 
         await record_audit_event(
             self.db,

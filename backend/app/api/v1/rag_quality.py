@@ -139,7 +139,7 @@ async def create_issue(
     db.add(issue)
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -206,7 +206,7 @@ async def update_issue(
 
     await db.flush()
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     action = "rag_quality.issue_update"
     if data.status == "resolved":

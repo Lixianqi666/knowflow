@@ -607,7 +607,7 @@ async def debug_agent(
         logging.getLogger(__name__).exception(f"Agent 调试 LLM 调用失败: agent={agent_id}")
         answer = "调试失败: LLM 服务异常，请稍后重试"
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -659,7 +659,7 @@ async def publish_agent(
     await db.flush()
     await cache_delete(AGENTS_CACHE_KEY)
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
@@ -693,7 +693,7 @@ async def rollback_agent(
     await db.flush()
     await cache_delete(AGENTS_CACHE_KEY)
 
-    from app.services.audit_v2 import record_audit_event
+    from app.services.audit import record_audit_event
 
     await record_audit_event(
         db,
