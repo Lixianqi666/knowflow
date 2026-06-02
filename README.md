@@ -1,7 +1,5 @@
 # KnowFlow
 
-> 当前版本：v0.1.0 · [CHANGELOG](./CHANGELOG.md) · [版本策略](./docs/versioning.md)
-
 企业知识库 RAG 问答系统。上传文档，基于检索增强生成（RAG）进行流式问答，支持多知识库、多角色权限、Agent 对话、管理后台。
 
 ## 功能特性
@@ -10,9 +8,9 @@
 - **多知识库** — 按业务场景隔离文档和对话
 - **文档管理** — 支持 TXT / Markdown / PDF / DOCX / XLSX，拖拽上传，批量操作
 - **Agent 对话** — 可配置系统提示词、关联知识库的独立对话 Agent
-- **管理后台** — 用户管理、文档权限、数据统计、审计日志、Prompt 模板
+- **管理后台** — 用户管理、文档权限、数据统计、审计日志、Prompt 模板、健康监控、RAG 评测
 - **可观测性** — Prometheus 指标（`/metrics`）、结构化 JSON 日志（含 request_id）、Langfuse LLM 追踪
-- **生产就绪** — nginx 反向代理 + SSL、Docker 资源限制、CI 测试流水线
+- **生产就绪** — nginx 反向代理 + SSL、Docker 资源限制、Redis 幂等锁、异步任务队列
 
 ## 系统架构
 
@@ -152,8 +150,6 @@ docker compose down
 - `/health` → backend 健康检查
 - `/metrics` → 仅限 Docker 内部网络访问
 
-开发环境自动生成自签名证书，生产环境使用 Let's Encrypt（详见 [DEPLOY.md](./DEPLOY.md)）。
-
 ### Prometheus 指标
 
 后端暴露 `/metrics` 端点，采集以下指标：
@@ -206,17 +202,12 @@ knowflow/
 │   ├── nginx.conf
 │   ├── conf.d/default.conf   # 路由 + SSL
 │   └── entrypoint.sh         # 自签名证书生成
-├── docker-compose.yml        # 开发环境
-├── docker-compose.prod.yml   # 生产环境（certbot）
-└── DEPLOY.md                 # 部署指南
+└── docker-compose.yml        # 开发环境
 ```
 
 ## 测试
 
 ```bash
-# 一键验证（推荐）
-sh scripts/verify-docker.sh
-
 # 后端测试
 docker compose build backend
 docker compose up -d postgres redis
@@ -230,31 +221,3 @@ docker run --rm knowflow-frontend-test sh -c "npm run test"
 # 前端构建
 docker compose build frontend
 ```
-
-## 私有化交付
-
-- [私有化部署指南](docs/private_deployment.md) — 服务器配置、环境变量、首次部署
-- [升级与回滚](docs/upgrade_rollback.md) — 升级流程、回滚步骤、版本记录
-- [备份与恢复](docs/backup_restore.md) — 数据库备份、文件备份、恢复演练
-- [发布检查清单](docs/release_checklist.md) — 发布前检查、发布步骤、回滚预案
-- [客户交付包](docs/delivery_package.md) — 交付包结构、必备文件、验收清单
-- [版本策略](docs/versioning.md) — SemVer 规则、migration 兼容性、镜像 tag
-- [UAT 验收清单](docs/uat_checklist.md) — 功能验收项、操作步骤、预期结果
-- [生产就绪检查](docs/production_readiness.md) — 安全/权限/审计/备份/监控检查
-
-## 版本与发布
-
-```bash
-# 查看版本信息
-bash scripts/print-version.sh
-
-# 构建发布清单
-bash scripts/build-release-manifest.sh
-# 输出：dist/release-manifest.json
-
-# UAT 交付材料检查
-bash scripts/uat-smoke.sh
-```
-
-- [CHANGELOG.md](./CHANGELOG.md) — 版本变更记录
-- [Release Notes 模板](./RELEASE_NOTES_TEMPLATE.md) — 发布说明模板
