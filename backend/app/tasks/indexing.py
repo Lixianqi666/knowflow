@@ -81,6 +81,12 @@ async def _index(document_id: str):
                     await db.commit()
                     return
 
+                # 二次校验文档是否仍存在（防止处理期间被删除导致 FK 违规）
+                await db.refresh(doc)
+                if not doc or doc.status == "failed":
+                    logger.info(f"文档 {document_id} 已不存在或被标记失败，跳过索引写入")
+                    return
+
                 await db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == doc.id))
 
                 texts = [c["content"] for c in chunks]

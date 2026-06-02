@@ -527,10 +527,11 @@ async def batch_reindex(
     for uid in valid_ids:
         # 重置文档状态，与单文档 reindex_kb 行为一致
         doc = await db.get(Document, uid)
-        if doc:
-            doc.status = "pending"
-            doc.error_message = None
-            await db.flush()
+        if not doc:
+            continue
+        doc.status = "pending"
+        doc.error_message = None
+        await db.flush()
         index_document_task.delay(str(uid))
 
     return {"detail": f"已触发 {len(valid_ids)} 个文档重新索引"}
