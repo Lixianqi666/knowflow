@@ -165,15 +165,19 @@ async def update_user(
         detail_changes.append(f"状态: {'启用' if body.is_active else '禁用'}")
         user.is_active = body.is_active
     await db.flush()
-    await audit_log(
+
+    from app.services.audit_v2 import record_audit_event
+
+    await record_audit_event(
         db,
-        str(admin.id),
-        "admin_update_user",
-        "user",
-        str(user_id),
-        f"管理员 {admin.name} 修改用户 {user.name}: {'; '.join(detail_changes)}",
-        ip=request.client.host if request.client else None,
+        actor_user=admin,
+        action="admin.update_user",
+        resource_type="user",
+        resource_id=user_id,
+        request=request,
+        metadata={"detail": "; ".join(detail_changes), "target_email": user.email},
     )
+
     return {
         "id": str(user.id),
         "email": user.email,
@@ -256,6 +260,9 @@ async def list_permissions(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
     result = await db.execute(
         select(DocumentPermission, User)
         .join(User, DocumentPermission.user_id == User.id)
@@ -282,6 +289,17 @@ async def grant_permission(
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
+
+    # 检查是否已有权限记录，避免 UniqueConstraint → 500
+    existing = await db.execute(
+        select(DocumentPermission).where(
+            DocumentPermission.document_id == doc_id,
+            DocumentPermission.user_id == body.user_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="该用户已有此文档权限")
+
     perm = DocumentPermission(document_id=doc_id, user_id=body.user_id, permission=body.permission)
     db.add(perm)
     await db.flush()
@@ -366,7 +384,8 @@ async def health_overview(
         t0 = time.time()
         await db.execute(select(func.count(Document.id)))
         result["database"]["latency_ms"] = round((time.time() - t0) * 1000)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"数据库健康检查失败: {e}")
         result["database"]["status"] = "down"
         result["status"] = "degraded"
 
@@ -378,7 +397,8 @@ async def health_overview(
         r = await get_redis()
         await r.ping()
         result["redis"]["latency_ms"] = round((time.time() - t0) * 1000)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Redis 健康检查失败: {e}")
         result["redis"]["status"] = "down"
         result["status"] = "degraded"
 
@@ -444,7 +464,7 @@ async def health_overview(
         score = latest_run.scalar_one_or_none()
         result["rag_evals"]["latest_score"] = round(score, 2) if score is not None else None
     except Exception as e:
-        logger.debug(f"RAG eval 统计查询失败: {e}")
+        logger.warning(f"RAG eval 统计查询失败: {e}")
 
     # Feedback stats
     try:
@@ -460,7 +480,7 @@ async def health_overview(
         result["feedback"]["up"] = fb_row.up or 0
         result["feedback"]["down"] = fb_row.down or 0
     except Exception as e:
-        logger.debug(f"反馈统计查询失败: {e}")
+        logger.warning(f"反馈统计查询失败: {e}")
 
     return result
 
@@ -471,96 +491,111 @@ async def health_indexing(
     db: AsyncSession = Depends(get_db),
 ):
     """索引状态概览"""
+    result = {
+        "pending": 0, "processing": 0, "indexed": 0, "failed": 0,
+        "stuck_processing": [], "top_retry": [], "recent_failed": [], "recent_indexed": [],
+    }
+
     # Status counts
-    stats = await db.execute(
-        select(
-            func.count(Document.id).filter(Document.status == "pending").label("pending"),
-            func.count(Document.id).filter(Document.status == "processing").label("processing"),
-            func.count(Document.id).filter(Document.status == "indexed").label("indexed"),
-            func.count(Document.id).filter(Document.status == "failed").label("failed"),
+    try:
+        stats = await db.execute(
+            select(
+                func.count(Document.id).filter(Document.status == "pending").label("pending"),
+                func.count(Document.id).filter(Document.status == "processing").label("processing"),
+                func.count(Document.id).filter(Document.status == "indexed").label("indexed"),
+                func.count(Document.id).filter(Document.status == "failed").label("failed"),
+            )
         )
-    )
-    row = stats.one()
+        row = stats.one()
+        result["pending"] = row.pending or 0
+        result["processing"] = row.processing or 0
+        result["indexed"] = row.indexed or 0
+        result["failed"] = row.failed or 0
+    except Exception as e:
+        logger.warning(f"索引状态统计查询失败: {e}")
 
     # Top retry count
-    retry_result = await db.execute(
-        select(Document)
-        .where(Document.retry_count > 0)
-        .order_by(Document.retry_count.desc())
-        .limit(5)
-    )
-    top_retry = [
-        {
-            "id": str(d.id),
-            "title": d.title,
-            "retry_count": d.retry_count,
-            "status": d.status,
-        }
-        for d in retry_result.scalars().all()
-    ]
+    try:
+        retry_result = await db.execute(
+            select(Document)
+            .where(Document.retry_count > 0)
+            .order_by(Document.retry_count.desc())
+            .limit(5)
+        )
+        result["top_retry"] = [
+            {
+                "id": str(d.id),
+                "title": d.title,
+                "retry_count": d.retry_count,
+                "status": d.status,
+            }
+            for d in retry_result.scalars().all()
+        ]
+    except Exception as e:
+        logger.warning(f"重试统计查询失败: {e}")
 
     # Recent failed
-    failed_result = await db.execute(
-        select(Document)
-        .where(Document.status == "failed")
-        .order_by(Document.updated_at.desc())
-        .limit(5)
-    )
-    recent_failed = [
-        {
-            "id": str(d.id),
-            "title": d.title,
-            "error_message": (d.error_message or "")[:200],
-            "updated_at": str(d.updated_at) if d.updated_at else None,
-        }
-        for d in failed_result.scalars().all()
-    ]
+    try:
+        failed_result = await db.execute(
+            select(Document)
+            .where(Document.status == "failed")
+            .order_by(Document.updated_at.desc())
+            .limit(5)
+        )
+        result["recent_failed"] = [
+            {
+                "id": str(d.id),
+                "title": d.title,
+                "error_message": (d.error_message or "")[:200],
+                "updated_at": str(d.updated_at) if d.updated_at else None,
+            }
+            for d in failed_result.scalars().all()
+        ]
+    except Exception as e:
+        logger.warning(f"最近失败文档查询失败: {e}")
 
     # Recent indexed
-    indexed_result = await db.execute(
-        select(Document)
-        .where(Document.status == "indexed")
-        .order_by(Document.indexed_at.desc())
-        .limit(5)
-    )
-    recent_indexed = [
-        {
-            "id": str(d.id),
-            "title": d.title,
-            "indexed_at": str(d.indexed_at) if d.indexed_at else None,
-        }
-        for d in indexed_result.scalars().all()
-    ]
+    try:
+        indexed_result = await db.execute(
+            select(Document)
+            .where(Document.status == "indexed")
+            .order_by(Document.indexed_at.desc())
+            .limit(5)
+        )
+        result["recent_indexed"] = [
+            {
+                "id": str(d.id),
+                "title": d.title,
+                "indexed_at": str(d.indexed_at) if d.indexed_at else None,
+            }
+            for d in indexed_result.scalars().all()
+        ]
+    except Exception as e:
+        logger.warning(f"最近索引文档查询失败: {e}")
 
     # Stuck processing (>10 minutes)
-    from datetime import datetime, timedelta, timezone
+    try:
+        from datetime import datetime, timedelta, timezone
 
-    stuck_threshold = datetime.now(timezone.utc) - timedelta(minutes=10)
-    stuck_result = await db.execute(
-        select(Document)
-        .where(Document.status == "processing", Document.updated_at < stuck_threshold)
-        .order_by(Document.updated_at.asc())
-        .limit(10)
-    )
-    stuck_processing = [
-        {
-            "id": str(d.id),
-            "title": d.title,
-            "updated_at": str(d.updated_at) if d.updated_at else None,
-        }
-        for d in stuck_result.scalars().all()
-    ]
+        stuck_threshold = datetime.now(timezone.utc) - timedelta(minutes=10)
+        stuck_result = await db.execute(
+            select(Document)
+            .where(Document.status == "processing", Document.updated_at < stuck_threshold)
+            .order_by(Document.updated_at.asc())
+            .limit(10)
+        )
+        result["stuck_processing"] = [
+            {
+                "id": str(d.id),
+                "title": d.title,
+                "updated_at": str(d.updated_at) if d.updated_at else None,
+            }
+            for d in stuck_result.scalars().all()
+        ]
+    except Exception as e:
+        logger.warning(f"卡住文档查询失败: {e}")
 
-    return {
-        "pending": row.pending or 0,
-        "processing": row.processing or 0,
-        "indexed": row.indexed or 0,
-        "failed": row.failed or 0,
-        "stuck_processing": stuck_processing,
-        "top_retry": top_retry,
-        "recent_failed": recent_failed,
-        "recent_indexed": recent_indexed,
-    }
+    return result
 
 
 @router.get("/health/chat")
