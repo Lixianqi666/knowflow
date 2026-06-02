@@ -37,7 +37,9 @@ async def clear_index_lock(document_id: str) -> bool:
         from app.core.ratelimit import get_redis
 
         r = await get_redis()
+        exists_before = await r.exists(key)
         result = await r.delete(key)
+        logger.info(f"clear_index_lock: key={key}, exists_before={exists_before}, delete_result={result}")
         return True
     except Exception as e:
         logger.warning(f"get_redis 删除锁失败，尝试新建连接: {e}")
