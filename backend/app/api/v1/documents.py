@@ -552,14 +552,11 @@ async def retry_index(
     await db.commit()
 
     # 清除可能残留的 Redis 锁，确保重试任务不被阻塞
-    from app.tasks.indexing import _release_lock, _acquire_lock, LOCK_KEY_PREFIX
-    from app.core.ratelimit import get_redis
+    from app.tasks.indexing import clear_index_lock
 
-    try:
-        r = await get_redis()
-        await r.delete(f"{LOCK_KEY_PREFIX}{doc_id}")
-    except Exception:
-        pass
+    lock_cleared = await clear_index_lock(doc_id)
+    if not lock_cleared:
+        logger.warning(f"文档 {doc_id} Redis 锁清除失败或锁不存在，worker 将跳过索引")
 
     from app.tasks.indexing import index_document_task
 
