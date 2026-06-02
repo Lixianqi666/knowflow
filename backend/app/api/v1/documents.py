@@ -524,6 +524,7 @@ async def batch_reindex(
 
     from app.tasks.indexing import index_document_task
 
+    dispatched = 0
     for uid in valid_ids:
         # 重置文档状态，与单文档 reindex_kb 行为一致
         doc = await db.get(Document, uid)
@@ -533,8 +534,9 @@ async def batch_reindex(
         doc.error_message = None
         await db.flush()
         index_document_task.delay(str(uid))
+        dispatched += 1
 
-    return {"detail": f"已触发 {len(valid_ids)} 个文档重新索引"}
+    return {"detail": f"已触发 {dispatched} 个文档重新索引"}
 
 
 @router.post("/{doc_id}/retry-index")
