@@ -267,7 +267,7 @@ export default function LoginPage() {
                   p.enabled ? (
                     <a
                       key={p.id}
-                      href={p.login_url || '#'}
+                      href={p.login_url && p.login_url.startsWith('https://') ? p.login_url : '#'}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-all"
                       style={{ borderColor: 'var(--c-border)', color: 'var(--c-text-secondary)' }}
                     >

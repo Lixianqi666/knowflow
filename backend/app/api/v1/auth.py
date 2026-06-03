@@ -48,6 +48,7 @@ async def login(
 async def refresh(
     request: Request,
     response: Response,
+    _: None = Depends(auth_rate_limit),
     db: AsyncSession = Depends(get_db),
 ):
     refresh_token = request.cookies.get("refresh_token")
@@ -94,6 +95,7 @@ async def refresh(
 async def logout(
     request: Request,
     response: Response,
+    _: None = Depends(auth_rate_limit),
 ):
     access_failed = False
     refresh_failed = False

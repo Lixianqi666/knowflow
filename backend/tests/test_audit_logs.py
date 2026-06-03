@@ -6,7 +6,7 @@ from sqlalchemy import select
 from uuid import UUID
 
 from app.models.audit_log import AuditLog
-from app.services.audit_v2 import _sanitize_metadata, record_audit_event
+from app.services.audit import _sanitize_metadata, record_audit_event
 
 
 # ---------- _sanitize_metadata 单元测试 ----------

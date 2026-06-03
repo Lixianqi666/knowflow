@@ -27,11 +27,11 @@ class DocumentChunker:
         current_idx = 0
 
         for sec in sections:
-            # 如果当前块+新节超限，先 flush
+            # 如果当前块+新节超限，先 flush（保留尾部 overlap 作为下一块开头）
             if current and len(current) + len(sec) > self.chunk_size:
                 chunks.append((current, current_idx))
                 current_idx += 1
-                current = ""
+                current = current[-self.chunk_overlap :] if self.chunk_overlap else ""
 
             # 如果单节就超限，语义感知切分
             if len(sec) > self.chunk_size:

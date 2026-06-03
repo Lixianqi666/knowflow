@@ -17,6 +17,10 @@ from app.schemas.user import Token, UserCreate, UserLogin, UserOut
 
 logger = logging.getLogger(__name__)
 
+# 登录失败锁定阈值：连续失败 5 次后锁定 15 分钟
+_MAX_FAILED_LOGINS = 5
+_LOCKOUT_SECONDS = 900
+
 
 def _validate_password(password: str) -> None:
     """校验密码策略"""
@@ -78,6 +82,22 @@ class AuthService:
             )
             await self.db.commit()
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号或密码错误")
+
+        # 账号锁定检查
+        if (user.failed_login_count or 0) >= _MAX_FAILED_LOGINS:
+            from app.services.audit import record_audit_event
+
+            await record_audit_event(
+                self.db,
+                action="auth.login.locked",
+                status="failed",
+                request=request,
+                metadata={"reason": "account_locked"},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail=f"账号已锁定，请 {_LOCKOUT_SECONDS // 60} 分钟后重试",
+            )
 
         # 账号被禁用
         if not user.is_active:
