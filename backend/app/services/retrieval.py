@@ -33,6 +33,10 @@ PERM_FILTER = """
             SELECT 1 FROM source_permissions sp
             WHERE sp.source_id = d.source_id AND sp.user_id = :uid
         )
+        OR EXISTS (
+            SELECT 1 FROM knowledge_base_members kbm
+            WHERE kbm.knowledge_base_id = d.kb_id AND kbm.user_id = :uid
+        )
     )
 """
 
