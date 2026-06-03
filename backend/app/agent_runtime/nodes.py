@@ -58,7 +58,9 @@ async def tool_executor_node(state: GraphState) -> dict[str, Any]:
 
     runtime_state.step_index += 1
     seen_actions = state.get("seen_actions", set())
-    signature = f"{action.tool_name}:{action.arguments}"
+    import json as _json
+
+    signature = f"{action.tool_name}:{_json.dumps(action.arguments, sort_keys=True)}"
     if signature in seen_actions:
         runtime_state.finished = True
         runtime_state.failure_reason = "检测到重复工具调用，已停止执行。"

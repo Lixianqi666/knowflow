@@ -210,6 +210,12 @@ export const useStore = create<Store>((set, get) => ({
       messages: [],
       messagesCache: {},
       chatError: null,
+      agents: [],
+      agentSessions: [],
+      currentAgentId: null,
+      currentAgentSessionId: null,
+      agentMessages: [],
+      agentStreaming: false,
       adminUsers: [],
       adminStats: null,
       kbs: [],
@@ -250,12 +256,13 @@ export const useStore = create<Store>((set, get) => ({
   setMessages: (messages) => set({ messages: asArray<Message>(messages) }),
   setCachedMessages: (convId, msgs) =>
     set((s) => {
-      const cache = { ...s.messagesCache, [convId]: asArray<Message>(msgs) };
+      // 删除旧条目后重新插入，保证 convId 在末尾（最新访问）
+      const { [convId]: _, ...rest } = s.messagesCache;
+      const cache = { ...rest, [convId]: asArray<Message>(msgs) };
       const keys = Object.keys(cache);
       // LRU：保留最近 50 个对话的消息缓存
       if (keys.length > 50) {
-        const oldest = keys[0];
-        delete cache[oldest];
+        delete cache[keys[0]];
       }
       return { messagesCache: cache };
     }),

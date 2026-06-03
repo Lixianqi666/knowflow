@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit_log import AuditLog
 from app.models.user import User
-from app.services.audit_v2 import _sanitize_metadata, record_audit_event
+from app.services.audit import _sanitize_metadata, record_audit_event
 
 
 # ---------- audit_logs nullable 测试 ----------

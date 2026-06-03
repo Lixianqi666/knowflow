@@ -240,11 +240,12 @@ class ApiClient {
       const err = await res.json().catch(() => ({ detail: '请求失败' }));
       throw new Error(err.detail || '请求失败');
     }
-    return res.body!;
+    if (!res.body) throw new Error('响应体为空');
+    return res.body;
   }
 
   async streamPost(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
-    return this.fetchWithRefresh(
+    const res = await this.fetchWithRefresh(
       `${API_URL}${path}`,
       {
         method: 'POST',
@@ -254,6 +255,11 @@ class ApiClient {
         credentials: 'include',
       },
     );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: '请求失败' }));
+      throw new Error(err.detail || '请求失败');
+    }
+    return res;
   }
 
   async logout(): Promise<void> {
