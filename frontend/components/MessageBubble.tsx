@@ -104,31 +104,16 @@ export default function MessageBubble({
                 <ReactMarkdown>{cleanContent}</ReactMarkdown>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 py-1">
-                <span
-                  className="inline-block w-2 h-4 rounded-sm"
-                  style={{
-                    background: 'var(--c-primary)',
-                    opacity: 0.4,
-                    animation: 'breathe 1.4s infinite',
-                  }}
-                />
-                <span
-                  className="inline-block w-2 h-4 rounded-sm"
-                  style={{
-                    background: 'var(--c-primary)',
-                    opacity: 0.3,
-                    animation: 'breathe 1.4s infinite 0.2s',
-                  }}
-                />
-                <span
-                  className="inline-block w-2 h-4 rounded-sm"
-                  style={{
-                    background: 'var(--c-primary)',
-                    opacity: 0.2,
-                    animation: 'breathe 1.4s infinite 0.4s',
-                  }}
-                />
+              <div
+                className="inline-flex items-center gap-2 text-sm"
+                style={{ color: 'var(--c-text-tertiary)' }}
+              >
+                <div className="thinking-dots">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <span>正在检索文档并生成回答...</span>
               </div>
             )}
 

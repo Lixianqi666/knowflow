@@ -351,18 +351,7 @@ export default function ChatWindow() {
                   onToEvalCase={handleToEvalCase}
                 />
               ))}
-              {waitingFirstToken && (
-                <div className="flex items-center gap-3 px-4 py-3 mb-4 animate-fade-in">
-                  <div className="thinking-dots">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                  <span className="text-sm" style={{ color: 'var(--c-text-tertiary)' }}>
-                    正在检索文档并生成回答...
-                  </span>
-                </div>
-              )}
+              {waitingFirstToken && null}
             </>
           ) : loadingMessages ? (
             <div className="space-y-6 py-8 px-4">
