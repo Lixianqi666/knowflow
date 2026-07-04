@@ -22,6 +22,12 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     task_time_limit=300,
     task_soft_time_limit=240,
+    beat_schedule={
+        "retry-failed-documents": {
+            "task": "retry_failed_documents",
+            "schedule": 3600,  # 每小时扫描一次 failed 文档
+        },
+    },
 )
 
 # 显式导入任务模块（autodiscovery 只找 tasks.py，不找 indexing.py）

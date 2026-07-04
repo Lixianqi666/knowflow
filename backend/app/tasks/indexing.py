@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, func
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
@@ -152,6 +152,22 @@ async def _index(document_id: str):
                     except Exception:
                         logger.exception(f"文档 {document_id} 状态重写也失败")
                 logger.exception(f"文档索引失败: {document_id} - {e}")
+                # re-raise 让 Celery retry 机制接管（瞬时故障自动重试）
+                raise
+    finally:
+        await engine.dispose()
+
+
+async def _increment_retry_count(document_id: str):
+    """增加文档重试计数"""
+    engine = create_async_engine(settings.DATABASE_URL, echo=False)
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    try:
+        async with async_session() as db:
+            doc = await db.get(Document, document_id)
+            if doc:
+                doc.retry_count = (doc.retry_count or 0) + 1
+                await db.commit()
     finally:
         await engine.dispose()
 
@@ -200,11 +216,63 @@ async def _index_with_lock(document_id: str):
         await _release_lock(document_id, token)
 
 
-@celery_app.task(name="index_document", bind=True, max_retries=2, default_retry_delay=30)
+MAX_AUTO_RETRY = 3
+
+
+@celery_app.task(name="index_document", bind=True, max_retries=3, default_retry_delay=60)
 def index_document_task(self, document_id: str):
-    """Celery 入口：运行异步索引"""
+    """Celery 入口：运行异步索引
+
+    失败后自动重试 3 次，间隔 60 秒。
+    重试次数用完后文档保持 failed 状态，由 beat 任务定期扫描恢复。
+    """
     try:
         asyncio.run(_index_with_lock(document_id))
     except Exception as e:
-        logger.exception(f"文档索引失败: {e}")
-        raise self.retry(exc=e)
+        retry_num = self.request.retries + 1
+        logger.exception(f"文档索引失败 (重试 {retry_num}/3): {document_id} - {e}")
+        # 更新文档重试计数
+        try:
+            asyncio.run(_increment_retry_count(document_id))
+        except Exception:
+            logger.warning(f"更新 retry_count 失败: {document_id}")
+        # Celery 自动重试；次数用完后抛出原始异常，任务标记为 FAILURE
+        raise self.retry(exc=e, countdown=60)
+
+
+@celery_app.task(name="retry_failed_documents")
+def retry_failed_documents_task():
+    """定时扫描 failed 文档，自动重试索引。
+
+    每小时执行一次，重试 retry_count < MAX_AUTO_RETRY 的 failed 文档。
+    用于恢复因服务重启、API 限流等导致的持久性失败。
+    """
+    asyncio.run(_retry_failed_documents())
+
+
+async def _retry_failed_documents():
+    """扫描并重试 failed 文档"""
+    engine = create_async_engine(settings.DATABASE_URL, echo=False)
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(Document).where(
+                    Document.status == "failed",
+                    Document.retry_count < MAX_AUTO_RETRY,
+                )
+            )
+            failed_docs = list(result.scalars().all())
+            if not failed_docs:
+                return
+            logger.info(f"发现 {len(failed_docs)} 个失败文档，开始自动重试")
+            for doc in failed_docs:
+                doc.status = "pending"
+                doc.error_message = None
+                await db.commit()
+                index_document_task.delay(str(doc.id))
+                logger.info(
+                    f"已重新入队: {doc.title} (retry_count={doc.retry_count})"
+                )
+    finally:
+        await engine.dispose()

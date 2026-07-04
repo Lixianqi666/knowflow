@@ -24,18 +24,21 @@ const statusLabel: Record<string, string> = {
   processing: '处理中',
   pending: '等待中',
   failed: '失败',
+  retrying: '重试中',
 };
 const statusColor: Record<string, string> = {
   indexed: '#16a34a',
   processing: '#d97706',
   pending: '#6b7280',
   failed: '#dc2626',
+  retrying: '#2563eb',
 };
 const statusBg: Record<string, string> = {
   indexed: 'var(--c-success-subtle)',
   processing: 'var(--c-warning-subtle)',
   pending: 'var(--c-bg)',
   failed: 'var(--c-error-subtle)',
+  retrying: 'var(--c-primary-subtle)',
 };
 
 function DocSkeleton() {

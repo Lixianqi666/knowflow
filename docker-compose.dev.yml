@@ -26,9 +26,20 @@ services:
       - ./backend:/app
       - uploads:/app/uploads
       - hf_cache:/app/hf_cache
+    # Celery 5.x 不支持 --autoreload，改 tasks 代码后需手动 restart worker
     command: >
       celery -A app.core.celery worker
-      --loglevel=info --concurrency=1 --autoreload
+      --loglevel=info --concurrency=1
+
+  beat:
+    image: knowflow-ai-worker:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+    command: >
+      celery -A app.core.celery beat --loglevel=info
 
   frontend:
     build:
