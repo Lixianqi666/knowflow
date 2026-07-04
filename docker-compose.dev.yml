@@ -1,0 +1,67 @@
+# 开发环境 override —— 配合 docker-compose.yml 使用
+# 启动：docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# 停止：docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+#
+# 与生产配置的差异：
+#   - backend/worker 挂载本地源码，uvicorn --reload，celery --autoreload
+#   - frontend 用 Dockerfile.dev + next dev，支持 HMR
+#   - 不经过 nginx，直接暴露 8000/3000 端口（CORS 已允许 localhost:3000）
+#   - 关闭 prometheus/grafana/db-backup，减少资源占用
+
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+      - uploads:/app/uploads
+      - hf_cache:/app/hf_cache
+    command: >
+      sh -c "alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000
+      --reload --reload-dir /app/app"
+    ports:
+      - "8000:8000"
+
+  worker:
+    volumes:
+      - ./backend:/app
+      - uploads:/app/uploads
+      - hf_cache:/app/hf_cache
+    command: >
+      celery -A app.core.celery worker
+      --loglevel=info --concurrency=1 --autoreload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+
+  # dev 环境关闭监控与备份，减少资源占用
+  prometheus:
+    profiles: ["dev-full"]
+  grafana:
+    profiles: ["dev-full"]
+  db-backup:
+    profiles: ["dev-full"]
+
+  # dev 环境不用 nginx，直接访问 8000/3000
+  nginx:
+    profiles: ["dev-full"]
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
