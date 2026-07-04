@@ -86,6 +86,22 @@ export default function MessageBubble({
     return c.trim();
   })();
 
+  // 把内容中疑似 LLM 误用的代码块拆开：当代码块内文本不包含换行/缩进（看起来像普通段落被错误包裹）
+  // 时，按换行/箭头连接符拆为正常段落。
+  const unescapeFencedParagraphs = (text: string) => {
+    return text.replace(/```[a-zA-Z]*\n?([\s\S]*?)\n?```/g, (match, body) => {
+      const trimmed = body.trim();
+      // 判定：内容里没有换行、且不是典型的代码（含箭头/中文长段落）→ 当作段落拆出来
+      const isLikelyParagraph =
+        !trimmed.includes('\n') &&
+        (trimmed.includes('→') || /[\u4e00-\u9fa5]/.test(trimmed));
+      if (isLikelyParagraph) {
+        return trimmed.replace(/→/g, '\n→ ');
+      }
+      return match;
+    });
+  };
+
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-5 animate-slide-up`}>
       <div
@@ -101,7 +117,7 @@ export default function MessageBubble({
           <div className="text-[15px] leading-relaxed">
             {cleanContent ? (
               <div className="prose">
-                <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                <ReactMarkdown>{unescapeFencedParagraphs(cleanContent)}</ReactMarkdown>
               </div>
             ) : (
               <div
