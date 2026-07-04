@@ -78,6 +78,10 @@ export default function ChatWindow() {
 
   useEffect(() => {
     if (!currentConvId) {
+      // 正在发送（新建对话中）时不清空消息，避免流式内容被清掉
+      // 根因：setStreaming(true) 触发本 effect 重跑，此时 currentConvId 仍为 null
+      // （对话创建 API 还没返回），会导致 setMessages([]) 清掉刚 add 的消息
+      if (streaming || sendingRef.current) return;
       setMessages([]);
       messagesConvIdRef.current = null;
       return;
